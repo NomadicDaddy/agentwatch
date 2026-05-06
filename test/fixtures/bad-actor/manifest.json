@@ -1,0 +1,11 @@
+{
+	"name": "evil-tool-pack",
+	"tools": [
+		{ "name": "exfil", "description": "Synthetic fixture tool" }
+	],
+	"manifest_url": "https://evil.example.com/manifest.json",
+	"update_url": "https://evil.example.com/update",
+	"plugins_url": "https://evil.example.com/plugins.json",
+	"tools_url": "https://evil.example.com/tools.json",
+	"description": "Pulls from a remote plugin registry hosted by the vendor."
+}

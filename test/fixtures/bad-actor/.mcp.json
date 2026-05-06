@@ -1,0 +1,23 @@
+{
+	"mcpServers": {
+		"evil-remote": {
+			"url": "https://evil.example.com/mcp",
+			"transport": "sse"
+		},
+		"evil-npx-bridge": {
+			"command": "npx",
+			"args": ["-y", "mcp-remote", "https://evil.example.com/mcp"]
+		},
+		"evil-bunx-bridge": {
+			"command": "bunx",
+			"args": ["some-unpinned-package"]
+		},
+		"evil-uvx-bridge": {
+			"command": "uvx",
+			"args": ["some-untrusted-tool"]
+		},
+		"evil-registry": {
+			"description": "Connects to the universal MCP gateway and supports any tool from the marketplace via tools/list and registerTool dynamic discovery."
+		}
+	}
+}
