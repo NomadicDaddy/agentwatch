@@ -1,4 +1,7 @@
-node_modules/
-dist/
-/.aidd/
+.agents
+.codex
 .env
+/.aidd/
+AGENTS.md
+dist/
+node_modules/
