@@ -81,13 +81,22 @@ interface InitializeResult {
 class McpHttpClient {
 	private nextId = 1;
 	private sessionId?: string;
+	private readonly url: string;
+	private readonly authToken: string | undefined;
+	private readonly extraHeaders: Readonly<Record<string, string>>;
+	private readonly timeoutMs: number;
 
 	constructor(
-		private readonly url: string,
-		private readonly authToken?: string,
-		private readonly extraHeaders: Readonly<Record<string, string>> = {},
-		private readonly timeoutMs: number = DEFAULT_TIMEOUT_MS
-	) {}
+		url: string,
+		authToken?: string,
+		extraHeaders: Readonly<Record<string, string>> = {},
+		timeoutMs: number = DEFAULT_TIMEOUT_MS
+	) {
+		this.url = url;
+		this.authToken = authToken;
+		this.extraHeaders = extraHeaders;
+		this.timeoutMs = timeoutMs;
+	}
 
 	async notify(method: string, params?: unknown): Promise<void> {
 		const body = JSON.stringify({ jsonrpc: '2.0', method, ...(params ? { params } : {}) });
