@@ -38,7 +38,7 @@ const BEARER_REGEX = /\b(Bearer\s+)([A-Za-z0-9._-]{8,})/g;
 
 /** `key: value` / `"key": "value"` for sensitive keys. Matches both quoted and bare values. */
 const KEYED_SECRET_REGEX =
-	/(["']?(?:token|secret|password|passwd|api[_-]?key|access[_-]?token|client[_-]?secret|auth)["']?\s*[:=]\s*)(["']?)([^"'\s,;}\]]+)\2/gi;
+	/(["']?(?:token|secret|password|passwd|api[_-]?key|access[_-]?token|client[_-]?secret|auth)["']?\s*[:=]\s*)(?:(["'])([^"']+)\2|([^\s,;}\]]+))/gi;
 
 /** Email address — keeps first char of local-part and full domain. */
 const EMAIL_REGEX = /\b([A-Za-z0-9])[A-Za-z0-9._%+-]{1,}(@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
@@ -72,10 +72,22 @@ export function maskSecrets(text: string): string {
 		(_match, prefix: string, body: string) => `${prefix}${maskTail(body)}`
 	);
 
-	out = out.replace(KEYED_SECRET_REGEX, (match, lead: string, quote: string, value: string) => {
-		if (value.length < MIN_SECRET_VALUE_LENGTH) return match;
-		return `${lead}${quote}${maskTail(value)}${quote}`;
-	});
+	out = out.replace(
+		KEYED_SECRET_REGEX,
+		(
+			match,
+			lead: string,
+			quote: string | undefined,
+			quotedValue: string | undefined,
+			bareValue: string | undefined
+		) => {
+			const value = quotedValue ?? bareValue ?? '';
+			if (value.length < MIN_SECRET_VALUE_LENGTH) return match;
+			return quote
+				? `${lead}${quote}${maskTail(value)}${quote}`
+				: `${lead}${maskTail(value)}`;
+		}
+	);
 
 	out = out.replace(
 		EMAIL_REGEX,
