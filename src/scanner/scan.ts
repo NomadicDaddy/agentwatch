@@ -91,7 +91,7 @@ export async function runScan(options: RunScanOptions): Promise<number> {
 		process.stderr.write(
 			`error: unsupported agent '${options.agent}'. Supported agents: ${supported}\n`
 		);
-		return 1;
+		return 2;
 	}
 
 	const progress = options.json ? noopProgress : stderrProgress;

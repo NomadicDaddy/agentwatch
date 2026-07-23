@@ -6,18 +6,20 @@
  * the composite scoring matches the spec when the rules execute together.
  */
 
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, spyOn, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { readArtifacts } from '../../src/scanner/artifact-reader.ts';
-import { discoverTargets, type AgentSource } from '../../src/scanner/targets.ts';
+import type { Finding } from '../../src/rules/types.ts';
+
 import { credentialReachabilityRule } from '../../src/rules/credential-reachability.ts';
 import { dynamicToolRegistryRule } from '../../src/rules/dynamic-tools.ts';
 import { localExecutionBridgeRule } from '../../src/rules/execution-bridges.ts';
 import { remoteCapabilityRule } from '../../src/rules/remote-capabilities.ts';
-import type { Finding } from '../../src/rules/types.ts';
+import { readArtifacts } from '../../src/scanner/artifact-reader.ts';
+import { runScan } from '../../src/scanner/scan.ts';
+import { discoverTargets, type AgentSource } from '../../src/scanner/targets.ts';
 
 let fixtureRoot: string;
 let linkedDirectoryRoot: string;
@@ -56,10 +58,20 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-	await rm(fixtureRoot, { recursive: true, force: true });
+	await rm(fixtureRoot, { force: true, recursive: true });
 });
 
 describe('custom path discovery and attribution', () => {
+	test('runScan returns exit code 2 for an unsupported agent', async () => {
+		const writeSpy = spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+		try {
+			expect(await runScan({ agent: '__no_such_agent__', json: false })).toBe(2);
+		} finally {
+			writeSpy.mockRestore();
+		}
+	});
+
 	test('discoverTargets attributes custom paths to the "custom" agent', async () => {
 		const sources = await discoverTargets({
 			agent: '__no_such_agent__', // suppress built-in agents in this run
