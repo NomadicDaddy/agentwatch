@@ -7,22 +7,30 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { readArtifacts } from '../../src/scanner/artifact-reader.ts';
-import { discoverTargets } from '../../src/scanner/targets.ts';
+import { discoverTargets, type AgentSource } from '../../src/scanner/targets.ts';
 import { credentialReachabilityRule } from '../../src/rules/credential-reachability.ts';
 import { dynamicToolRegistryRule } from '../../src/rules/dynamic-tools.ts';
 import { localExecutionBridgeRule } from '../../src/rules/execution-bridges.ts';
 import { remoteCapabilityRule } from '../../src/rules/remote-capabilities.ts';
 import type { Finding } from '../../src/rules/types.ts';
 
+let fixtureRoot: string;
+let linkedDirectoryRoot: string;
+let linkedFileRoot: string;
 let workdir: string;
 
 beforeAll(async () => {
-	workdir = await mkdtemp(join(tmpdir(), 'agentwatch-itest-'));
+	fixtureRoot = await mkdtemp(join(tmpdir(), 'agentwatch-itest-'));
+	workdir = join(fixtureRoot, 'scan-root');
+	const outsideRoot = join(fixtureRoot, 'outside-root');
+	const outsideSkills = join(outsideRoot, 'skills');
+	await mkdir(workdir);
+	await mkdir(outsideSkills, { recursive: true });
 	await writeFile(
 		join(workdir, '.mcp.json'),
 		[
@@ -38,10 +46,17 @@ beforeAll(async () => {
 		join(workdir, 'connector.json'),
 		'{\n  "connectors": [{ "service": "gmail" }],\n  "access_token": "REDACTED"\n}'
 	);
+	const outsideInstruction = join(outsideRoot, 'AGENTS.md');
+	await writeFile(outsideInstruction, '# Outside instructions\n');
+	await writeFile(join(outsideSkills, 'SKILL.md'), '# Outside skill\n');
+	linkedFileRoot = join(workdir, 'AGENTS.md');
+	linkedDirectoryRoot = join(workdir, 'linked-skills');
+	await symlink(outsideInstruction, linkedFileRoot, 'file');
+	await symlink(outsideSkills, linkedDirectoryRoot, 'dir');
 });
 
 afterAll(async () => {
-	await rm(workdir, { recursive: true, force: true });
+	await rm(fixtureRoot, { recursive: true, force: true });
 });
 
 describe('custom path discovery and attribution', () => {
@@ -65,6 +80,28 @@ describe('custom path discovery and attribution', () => {
 		expect(artifacts.length).toBeGreaterThan(0);
 		expect(artifacts.every((a) => a.source.agent === 'custom')).toBe(true);
 		expect(artifacts.every((a) => a.source.customPath === true)).toBe(true);
+	});
+
+	test('discoverTargets rejects registered and custom symbolic-link roots', async () => {
+		const sources = await discoverTargets({
+			agent: 'codex',
+			customPaths: [linkedFileRoot, linkedDirectoryRoot],
+			cwd: workdir,
+			env: {},
+			platform: 'linux',
+		});
+
+		expect(sources.some((source) => source.root === linkedFileRoot)).toBe(false);
+		expect(sources.some((source) => source.root === linkedDirectoryRoot)).toBe(false);
+	});
+
+	test('readArtifacts rejects direct file and directory symbolic-link roots', async () => {
+		const sources: AgentSource[] = [
+			{ agent: 'codex', customPath: false, root: linkedFileRoot },
+			{ agent: 'custom', customPath: true, root: linkedDirectoryRoot },
+		];
+
+		expect(await readArtifacts(sources)).toEqual([]);
 	});
 });
 

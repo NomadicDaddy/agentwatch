@@ -10,7 +10,7 @@
  */
 
 import fastGlob from 'fast-glob';
-import { readFile, stat } from 'node:fs/promises';
+import { lstat, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { Artifact } from '../rules/types.ts';
@@ -56,10 +56,11 @@ async function readSingleFile(
 ): Promise<{ content: string } | null> {
 	let info;
 	try {
-		info = await stat(absPath);
+		info = await lstat(absPath);
 	} catch {
 		return null;
 	}
+	if (info.isSymbolicLink()) return null;
 	if (!info.isFile()) return null;
 	if (info.size > maxBytes) return null;
 
@@ -76,10 +77,11 @@ async function readSingleFile(
 async function listFilesUnderRoot(root: string): Promise<string[]> {
 	let info;
 	try {
-		info = await stat(root);
+		info = await lstat(root);
 	} catch {
 		return [];
 	}
+	if (info.isSymbolicLink()) return [];
 	if (info.isFile()) return [root];
 	if (!info.isDirectory()) return [];
 
