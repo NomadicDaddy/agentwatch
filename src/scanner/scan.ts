@@ -27,6 +27,7 @@ import { remoteMcpGatewayRule } from '../rules/remote-mcp-gateway.ts';
 import { triggerBasedInvocationRule } from '../rules/trigger-based-invocation.ts';
 import { unpinnedExecutionBridgeRule } from '../rules/unpinned-execution-bridge.ts';
 import { untrustedInstallSourceRule } from '../rules/untrusted-install-source.ts';
+import { PACKAGE_VERSION } from '../version.ts';
 import { getSupportedAgentNames, isSupportedAgent } from './agent-registry.ts';
 import { readArtifacts } from './artifact-reader.ts';
 import { correlateFindings } from './finding-correlation.ts';
@@ -60,8 +61,6 @@ export interface ScanResult {
 	readonly sources: readonly AgentSource[];
 	readonly version: string;
 }
-
-const SCAN_VERSION = '0.1.0';
 
 /** Rules registered with the orchestrator. Order is irrelevant; findings are sorted by score. */
 const REGISTERED_RULES: readonly Rule[] = [
@@ -124,7 +123,7 @@ export async function runScan(options: RunScanOptions): Promise<number> {
 		inventory,
 		scannedAt: new Date().toISOString(),
 		sources,
-		version: SCAN_VERSION,
+		version: PACKAGE_VERSION,
 	};
 
 	if (options.json) {

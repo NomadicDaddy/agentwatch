@@ -23,10 +23,9 @@ import { broadToolSurfaceRule } from '../rules/broad-tool-surface.ts';
 import { credentialFileReferenceRule } from '../rules/credential-file-reference.ts';
 import { memoryContextRequestRule } from '../rules/memory-context.ts';
 import { triggerBasedInvocationRule } from '../rules/trigger-based-invocation.ts';
+import { PACKAGE_VERSION } from '../version.ts';
 import { formatHuman, type ScanInventory } from './human.ts';
 import { formatJson } from './json.ts';
-
-const VERSION = '0.1.0';
 
 const SKILL_RULES: readonly Rule[] = [
 	memoryContextRequestRule,
@@ -84,7 +83,7 @@ export async function runInspectSkill(
 		sources: [source],
 		totalArtifacts: 1,
 	};
-	const meta = { scannedAt: new Date().toISOString(), version: VERSION };
+	const meta = { scannedAt: new Date().toISOString(), version: PACKAGE_VERSION };
 
 	const out = options.json
 		? formatJson(findings, inventory, meta)

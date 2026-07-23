@@ -13,9 +13,10 @@
 
 import { z } from 'zod';
 
+import { PACKAGE_VERSION } from '../version.ts';
+
 const PROTOCOL_VERSION = '2024-11-05';
 const CLIENT_NAME = 'agentwatch';
-const CLIENT_VERSION = '0.1.0';
 const DEFAULT_TIMEOUT_MS = 15_000;
 
 export interface McpToolInfo {
@@ -282,7 +283,7 @@ export async function probeMcp(options: ProbeOptions): Promise<ProbeResult> {
 	try {
 		init = await client.request('initialize', INITIALIZE_RESULT_SCHEMA, {
 			capabilities: {},
-			clientInfo: { name: CLIENT_NAME, version: CLIENT_VERSION },
+			clientInfo: { name: CLIENT_NAME, version: PACKAGE_VERSION },
 			protocolVersion: PROTOCOL_VERSION,
 		});
 		try {

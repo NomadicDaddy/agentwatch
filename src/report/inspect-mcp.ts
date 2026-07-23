@@ -23,10 +23,9 @@ import { localExecutionBridgeRule } from '../rules/execution-bridges.ts';
 import { remoteCapabilityRule } from '../rules/remote-capabilities.ts';
 import { remoteManifestRule } from '../rules/remote-manifest.ts';
 import { unpinnedExecutionBridgeRule } from '../rules/unpinned-execution-bridge.ts';
+import { PACKAGE_VERSION } from '../version.ts';
 import { formatHuman, type ScanInventory } from './human.ts';
 import { formatJson } from './json.ts';
-
-const VERSION = '0.1.0';
 
 const MCP_RULES: readonly Rule[] = [
 	remoteCapabilityRule,
@@ -100,7 +99,7 @@ export async function runInspectMcp(
 		sources: [source],
 		totalArtifacts: 1,
 	};
-	const meta = { scannedAt: new Date().toISOString(), version: VERSION };
+	const meta = { scannedAt: new Date().toISOString(), version: PACKAGE_VERSION };
 
 	const out = options.json
 		? formatJson(findings, inventory, meta)

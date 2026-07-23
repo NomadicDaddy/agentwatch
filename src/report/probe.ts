@@ -17,8 +17,8 @@ import type { Severity } from '../rules/types.ts';
 import { analyzeProbe } from '../probe/analyze.ts';
 import { probeMcp } from '../probe/probe.ts';
 import { maskSecrets } from '../util/mask.ts';
+import { PACKAGE_VERSION } from '../version.ts';
 
-const VERSION = '0.1.0';
 const SEVERITY_RANK: Readonly<Record<Severity, number>> = {
 	critical: 4,
 	high: 3,
@@ -156,7 +156,7 @@ function padSeverity(severity: Severity): string {
 
 function formatProbeHuman(result: ProbeResult, issues: readonly ProbeIssue[]): string {
 	const lines: string[] = [];
-	lines.push(`AgentWatch probe (v${VERSION})`);
+	lines.push(`AgentWatch probe (v${PACKAGE_VERSION})`);
 	lines.push(`URL:        ${result.url}`);
 	lines.push(`Probed at:  ${result.probedAt}`);
 	if (result.serverInfo) {
@@ -230,7 +230,7 @@ function formatProbeJson(result: ProbeResult, issues: readonly ProbeIssue[]): st
 		issues,
 		probe: result,
 		probedAt: result.probedAt,
-		version: VERSION,
+		version: PACKAGE_VERSION,
 	};
 	return `${JSON.stringify(payload, null, 2)}\n`;
 }

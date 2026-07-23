@@ -18,15 +18,14 @@ import { runInspectMcp } from './report/inspect-mcp.ts';
 import { runInspectSkill } from './report/inspect-skill.ts';
 import { runProbe } from './report/probe.ts';
 import { DEFAULT_THRESHOLD, isSeverity, runScan } from './scanner/scan.ts';
-
-const VERSION = '0.1.0';
+import { PACKAGE_VERSION } from './version.ts';
 
 function buildProgram(): Command {
 	const program = new Command();
 	program
 		.name('agentwatch')
 		.description('Local, read-only inspection of installed AI-agent capability surfaces.')
-		.version(VERSION)
+		.version(PACKAGE_VERSION)
 		.option('--license', 'Print first- and third-party license notices.');
 
 	program.on('option:license', () => {
