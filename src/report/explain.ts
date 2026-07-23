@@ -132,6 +132,17 @@ const RULE_EXPLANATIONS: Readonly<Record<string, RuleExplanation>> = {
 			'The skill or manifest declares triggers (keywords, file events, schedule) that auto-invoke the agent without an explicit user prompt. Triggers move the agent from "user-driven" to "background" and broaden the threat model.',
 		title: 'Trigger-based invocation',
 	},
+	'agent.unpinned-execution-bridge': {
+		group: 'local-execution-bridges',
+		remediation: [
+			'Pin launcher targets to an exact version, such as `npx pkg@1.2.3`.',
+			'Review and deliberately update each pinned version instead of resolving the latest release at run time.',
+		],
+		signals: ['unpinned-execution'],
+		summary:
+			'An MCP config or tool manifest launches a package through npx, bunx, uvx, or pipx without an exact version. The resolved package can change between runs without review.',
+		title: 'Unpinned execution bridge',
+	},
 	'agent.untrusted-install-source': {
 		group: 'untrusted-provenance',
 		remediation: [
@@ -149,7 +160,7 @@ const RULE_EXPLANATIONS: Readonly<Record<string, RuleExplanation>> = {
 
 const META_EXPLANATIONS: Readonly<Record<string, { body: string; title: string }>> = {
 	cli: {
-		body: 'AgentWatch ships four commands: scan, inspect-skill, inspect-mcp, and explain. Run `agentwatch --help` for usage. Pass `--json` to scan for machine-readable output.',
+		body: 'AgentWatch ships five commands: scan, inspect-skill, inspect-mcp, probe, and explain. Run `agentwatch --help` for usage. Pass `--json` to scan for machine-readable output.',
 		title: 'AgentWatch CLI',
 	},
 	scoring: {

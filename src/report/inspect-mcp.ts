@@ -3,9 +3,9 @@
  *
  * Reads a single MCP server config file (JSON or TOML), classifies it as an
  * `mcp-config` artifact, and runs the MCP-focused rule pack against it:
- * remote-capability, dynamic-tool-registry, and local-execution-bridge
- * (which carries the unpinned-execution signal). Findings are emitted via
- * the shared human or JSON reporter so output is consistent with `scan`.
+ * remote-capability, remote-manifest, dynamic-tool-registry,
+ * local-execution-bridge, and unpinned-execution-bridge. Findings are emitted
+ * via the shared human or JSON reporter so output is consistent with `scan`.
  *
  * Read-only. Returns 0 when no finding meets the medium threshold, 1 when
  * findings meet or exceed it, and 2 on read or parse errors.
@@ -22,6 +22,7 @@ import { dynamicToolRegistryRule } from '../rules/dynamic-tools.ts';
 import { localExecutionBridgeRule } from '../rules/execution-bridges.ts';
 import { remoteCapabilityRule } from '../rules/remote-capabilities.ts';
 import { remoteManifestRule } from '../rules/remote-manifest.ts';
+import { unpinnedExecutionBridgeRule } from '../rules/unpinned-execution-bridge.ts';
 import { formatHuman, type ScanInventory } from './human.ts';
 import { formatJson } from './json.ts';
 
@@ -32,6 +33,7 @@ const MCP_RULES: readonly Rule[] = [
 	remoteManifestRule,
 	dynamicToolRegistryRule,
 	localExecutionBridgeRule,
+	unpinnedExecutionBridgeRule,
 ];
 
 const SEVERITY_ORDER: readonly Severity[] = ['info', 'low', 'medium', 'high', 'critical'];
