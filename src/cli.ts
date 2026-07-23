@@ -157,13 +157,15 @@ function parseHeaderOption(values: readonly string[] | undefined): null | Record
 	for (const raw of values ?? []) {
 		const idx = raw.indexOf(':');
 		if (idx <= 0) {
-			process.stderr.write(`error: invalid --header '${raw}' (expected 'Key: value')\n`);
+			process.stderr.write("error: invalid --header (expected 'Key: value')\n");
 			return null;
 		}
 		const name = raw.slice(0, idx).trim();
 		const value = raw.slice(idx + 1).trim();
 		if (!name) {
-			process.stderr.write(`error: invalid --header '${raw}' (empty header name)\n`);
+			process.stderr.write(
+				"error: invalid --header (expected 'Key: value' with a non-empty key)\n"
+			);
 			return null;
 		}
 		headers[name] = value;

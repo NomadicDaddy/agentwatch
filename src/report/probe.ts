@@ -40,7 +40,7 @@ export interface RunProbeOptions {
 
 export async function runProbe(url: string, options: RunProbeOptions): Promise<number> {
 	if (!/^https?:\/\//i.test(url)) {
-		process.stderr.write(`probe: URL must start with http:// or https:// (got '${url}')\n`);
+		process.stderr.write('probe: URL must start with http:// or https://\n');
 		return 2;
 	}
 
