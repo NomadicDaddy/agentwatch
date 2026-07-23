@@ -11,6 +11,8 @@ import { Command } from 'commander';
 
 import type { Severity } from './rules/types.ts';
 
+import licenseText from '../LICENSE' with { type: 'text' };
+import thirdPartyNoticesText from '../THIRD-PARTY-NOTICES.md' with { type: 'text' };
 import { runExplain } from './report/explain.ts';
 import { runInspectMcp } from './report/inspect-mcp.ts';
 import { runInspectSkill } from './report/inspect-skill.ts';
@@ -24,7 +26,13 @@ function buildProgram(): Command {
 	program
 		.name('agentwatch')
 		.description('Local, read-only inspection of installed AI-agent capability surfaces.')
-		.version(VERSION);
+		.version(VERSION)
+		.option('--license', 'Print first- and third-party license notices.');
+
+	program.on('option:license', () => {
+		process.stdout.write(`${licenseText.trimEnd()}\n\n${thirdPartyNoticesText.trimEnd()}\n`);
+		process.exit(0);
+	});
 
 	program
 		.command('scan')

@@ -54,7 +54,8 @@
 		"src",
 		"scripts",
 		"README.md",
-		"LICENSE"
+		"LICENSE",
+		"THIRD-PARTY-NOTICES.md"
 	],
 	"keywords": [
 		"agent",

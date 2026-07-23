@@ -63,4 +63,15 @@ describe('focused inspection and explanations', () => {
 			'five commands: scan, inspect-skill, inspect-mcp, probe, and explain'
 		);
 	});
+
+	test('global license option emits first- and third-party notices', () => {
+		const result = runCli(['--license']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stderr).toBe('');
+		expect(result.stdout).toContain('Copyright (c) 2026 NomadicDaddy');
+		expect(result.stdout).toContain('# Third-Party Notices');
+		expect(result.stdout).toContain('## commander@15.0.0');
+		expect(result.stdout).toContain('## zod@4.4.3');
+	});
 });

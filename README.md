@@ -151,4 +151,5 @@ bun run format      # Format code with Prettier
 
 ## License
 
-MIT
+[MIT](LICENSE). Third-party dependency licenses are reproduced in
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
