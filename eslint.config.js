@@ -19,13 +19,14 @@ const noDefaultExportPlugin = {
 	},
 };
 
+// eslint-disable-next-line import/no-default-export
 export default tseslint.config([
 	{
 		ignores: ['**/*.min.js', '**/dist/**', '**/node_modules/**'],
 	},
 	{
 		extends: [js.configs.recommended, ...tseslint.configs.recommended],
-		files: ['**/*.ts'],
+		files: ['**/*.{ts,tsx,js,jsx}'],
 		languageOptions: {
 			ecmaVersion: 2022,
 			globals: {
@@ -105,6 +106,15 @@ export default tseslint.config([
 					varsIgnorePattern: '^_',
 				},
 			],
+		},
+	},
+	{
+		files: ['**/*.js'],
+		languageOptions: {
+			globals: globals.node,
+		},
+		rules: {
+			'@typescript-eslint/no-require-imports': 'off',
 		},
 	},
 ]);

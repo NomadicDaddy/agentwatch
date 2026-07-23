@@ -5,32 +5,32 @@
  * each test can declare a focused fixture without re-spelling the full type.
  */
 
+import type { Artifact, ArtifactType, RuleContext } from '../src/rules/types.ts';
 import type { AgentPlatform } from '../src/scanner/agent-registry.ts';
 import type { AgentSource } from '../src/scanner/targets.ts';
-import type { Artifact, ArtifactType, RuleContext } from '../src/rules/types.ts';
 
 export function makeSource(overrides: Partial<AgentSource> = {}): AgentSource {
 	return {
 		agent: 'claude',
-		root: '/fixture/root',
 		customPath: false,
+		root: '/fixture/root',
 		...overrides,
 	};
 }
 
 interface ArtifactInit {
-	readonly path?: string;
 	readonly content: string;
-	readonly type: ArtifactType;
+	readonly path?: string;
 	readonly source?: AgentSource;
+	readonly type: ArtifactType;
 }
 
 export function makeArtifact(init: ArtifactInit): Artifact {
 	return {
-		path: init.path ?? `/fixture/root/${init.type}.json`,
 		content: init.content,
-		type: init.type,
+		path: init.path ?? `/fixture/root/${init.type}.json`,
 		source: init.source ?? makeSource(),
+		type: init.type,
 	};
 }
 

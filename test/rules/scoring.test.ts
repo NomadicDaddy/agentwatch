@@ -23,8 +23,8 @@ describe('composite scoring engine', () => {
 	test('explainScore returns per-signal breakdown', () => {
 		const breakdown = explainScore([Signal.RemoteEndpoint, Signal.CredentialReach]);
 		expect(breakdown).toEqual([
-			{ signal: 'remote-endpoint', score: 35 },
-			{ signal: 'credential-reach', score: 20 },
+			{ score: 35, signal: 'remote-endpoint' },
+			{ score: 20, signal: 'credential-reach' },
 		]);
 	});
 

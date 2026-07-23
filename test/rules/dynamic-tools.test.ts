@@ -6,8 +6,8 @@ import { makeArtifact, makeContext } from '../helpers.ts';
 describe('agent.dynamic-tool-registry', () => {
 	test('flags MCP tools/list discovery method', async () => {
 		const artifact = makeArtifact({
-			type: 'mcp-config',
 			content: ['{', '  "rpc": "tools/list"', '}'].join('\n'),
+			type: 'mcp-config',
 		});
 		const findings = await dynamicToolRegistryRule.scan(makeContext([artifact]));
 		expect(findings).toHaveLength(1);
@@ -18,9 +18,9 @@ describe('agent.dynamic-tool-registry', () => {
 
 	test('flags registerTool API references in skill artifacts', async () => {
 		const artifact = makeArtifact({
-			type: 'skill',
 			content: 'this skill calls registerTool() at runtime',
 			path: '/fixture/skills/foo/skill.md',
+			type: 'skill',
 		});
 		const findings = await dynamicToolRegistryRule.scan(makeContext([artifact]));
 		expect(findings).toHaveLength(1);
@@ -29,8 +29,8 @@ describe('agent.dynamic-tool-registry', () => {
 
 	test('flags remote tool registry wording in tool manifests', async () => {
 		const artifact = makeArtifact({
-			type: 'tool-manifest',
 			content: 'this manifest pulls from a remote registry of tools',
+			type: 'tool-manifest',
 		});
 		const findings = await dynamicToolRegistryRule.scan(makeContext([artifact]));
 		// Both 'tool registry' and 'remote registry' wording variants may match;
@@ -41,8 +41,8 @@ describe('agent.dynamic-tool-registry', () => {
 
 	test('skips out-of-scope artifact types', async () => {
 		const artifact = makeArtifact({
-			type: 'connector-config',
 			content: 'tools/list referenced here should be ignored',
+			type: 'connector-config',
 		});
 		const findings = await dynamicToolRegistryRule.scan(makeContext([artifact]));
 		expect(findings).toHaveLength(0);
@@ -50,9 +50,9 @@ describe('agent.dynamic-tool-registry', () => {
 
 	test('produces no findings on a benign artifact', async () => {
 		const artifact = makeArtifact({
-			type: 'mcp-config',
 			content:
 				'{\n  "mcpServers": { "local": { "command": "node", "args": ["server.js"] } }\n}',
+			type: 'mcp-config',
 		});
 		const findings = await dynamicToolRegistryRule.scan(makeContext([artifact]));
 		expect(findings).toHaveLength(0);

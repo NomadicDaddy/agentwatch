@@ -16,12 +16,7 @@ interface CliResult {
 const PROJECT_ROOT = resolve(import.meta.dir, '..', '..');
 const CLI_ENTRY = resolve(PROJECT_ROOT, 'src', 'cli.ts');
 const BAD_ACTOR_FIXTURE = resolve(PROJECT_ROOT, 'test', 'fixtures', 'bad-actor');
-const CREDENTIAL_FORMAT_FIXTURE = resolve(
-	PROJECT_ROOT,
-	'test',
-	'fixtures',
-	'credential-formats'
-);
+const CREDENTIAL_FORMAT_FIXTURE = resolve(PROJECT_ROOT, 'test', 'fixtures', 'credential-formats');
 const SOURCE = makeSource();
 const INVENTORY: ScanInventory = {
 	artifactCounts: { claude: { 'connector-config': 1 } },
@@ -131,22 +126,10 @@ describe('human report credential masking', () => {
 
 	test('masks provider and Authorization credentials in shipped human and JSON scans', () => {
 		const outputs = [
-			runCli([
-				'scan',
-				'--path',
-				CREDENTIAL_FORMAT_FIXTURE,
-				'--agent',
-				'custom',
-				'--all',
-			]).stdout,
-			runCli([
-				'scan',
-				'--path',
-				CREDENTIAL_FORMAT_FIXTURE,
-				'--agent',
-				'custom',
-				'--json',
-			]).stdout,
+			runCli(['scan', '--path', CREDENTIAL_FORMAT_FIXTURE, '--agent', 'custom', '--all'])
+				.stdout,
+			runCli(['scan', '--path', CREDENTIAL_FORMAT_FIXTURE, '--agent', 'custom', '--json'])
+				.stdout,
 		];
 
 		expect(() => JSON.parse(outputs[1] ?? '')).not.toThrow();

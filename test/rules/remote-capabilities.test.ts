@@ -6,8 +6,8 @@ import { makeArtifact, makeContext } from '../helpers.ts';
 describe('agent.remote-capability', () => {
 	test('flags an https MCP url', async () => {
 		const artifact = makeArtifact({
-			type: 'mcp-config',
 			content: '{ "url": "https://mcp.example.com/v1" }',
+			type: 'mcp-config',
 		});
 		const findings = await remoteCapabilityRule.scan(makeContext([artifact]));
 		expect(findings).toHaveLength(1);
@@ -17,8 +17,8 @@ describe('agent.remote-capability', () => {
 
 	test('flags SSE / streamable-http transports', async () => {
 		const artifact = makeArtifact({
-			type: 'mcp-config',
 			content: '{ "transport": "sse" }',
+			type: 'mcp-config',
 		});
 		const findings = await remoteCapabilityRule.scan(makeContext([artifact]));
 		expect(findings.some((f) => f.signals.includes('remote-endpoint'))).toBe(true);
@@ -26,8 +26,8 @@ describe('agent.remote-capability', () => {
 
 	test('flags gateway/proxy/router/registry wording with gateway signal', async () => {
 		const artifact = makeArtifact({
-			type: 'tool-manifest',
 			content: 'This is an mcp gateway that aggregates several remote tools.',
+			type: 'tool-manifest',
 		});
 		const findings = await remoteCapabilityRule.scan(makeContext([artifact]));
 		expect(findings.length).toBeGreaterThanOrEqual(1);
@@ -37,8 +37,8 @@ describe('agent.remote-capability', () => {
 
 	test('flags mcp-remote launcher package', async () => {
 		const artifact = makeArtifact({
-			type: 'mcp-config',
 			content: '{ "args": ["mcp-remote"] }',
+			type: 'mcp-config',
 		});
 		const findings = await remoteCapabilityRule.scan(makeContext([artifact]));
 		expect(findings.some((f) => f.evidence?.includes('npx-remote-bridge'))).toBe(true);
@@ -46,8 +46,8 @@ describe('agent.remote-capability', () => {
 
 	test('does not flag local file references', async () => {
 		const artifact = makeArtifact({
-			type: 'mcp-config',
 			content: '{ "url": "./local.json" }',
+			type: 'mcp-config',
 		});
 		const findings = await remoteCapabilityRule.scan(makeContext([artifact]));
 		expect(findings).toHaveLength(0);

@@ -6,7 +6,6 @@ import { makeArtifact, makeContext } from '../helpers.ts';
 describe('agent.local-execution-bridge', () => {
 	test('flags npx, bunx, and uvx launchers in MCP configs', async () => {
 		const artifact = makeArtifact({
-			type: 'mcp-config',
 			content: [
 				'{',
 				'  "mcpServers": {',
@@ -16,6 +15,7 @@ describe('agent.local-execution-bridge', () => {
 				'  }',
 				'}',
 			].join('\n'),
+			type: 'mcp-config',
 		});
 		const findings = await localExecutionBridgeRule.scan(makeContext([artifact]));
 		const kinds = findings.map((f) => f.evidence?.split(']')[0]?.replace('[', ''));
@@ -26,8 +26,8 @@ describe('agent.local-execution-bridge', () => {
 
 	test('flags POSIX shell launchers', async () => {
 		const artifact = makeArtifact({
-			type: 'mcp-config',
 			content: '{ "command": "bash" }',
+			type: 'mcp-config',
 		});
 		const findings = await localExecutionBridgeRule.scan(makeContext([artifact]));
 		expect(findings).toHaveLength(1);
@@ -36,8 +36,8 @@ describe('agent.local-execution-bridge', () => {
 
 	test('flags stdio transport declaration', async () => {
 		const artifact = makeArtifact({
-			type: 'mcp-config',
 			content: '{ "transport": "stdio" }',
+			type: 'mcp-config',
 		});
 		const findings = await localExecutionBridgeRule.scan(makeContext([artifact]));
 		expect(findings).toHaveLength(1);
@@ -46,8 +46,8 @@ describe('agent.local-execution-bridge', () => {
 
 	test('flags absolute local binary paths', async () => {
 		const artifact = makeArtifact({
-			type: 'mcp-config',
 			content: '{ "command": "/usr/local/bin/my-tool" }',
+			type: 'mcp-config',
 		});
 		const findings = await localExecutionBridgeRule.scan(makeContext([artifact]));
 		expect(findings.some((f) => f.evidence?.includes('local-binary'))).toBe(true);
@@ -55,8 +55,8 @@ describe('agent.local-execution-bridge', () => {
 
 	test('skips out-of-scope artifact types', async () => {
 		const artifact = makeArtifact({
-			type: 'skill',
 			content: '{ "command": "npx" }',
+			type: 'skill',
 		});
 		const findings = await localExecutionBridgeRule.scan(makeContext([artifact]));
 		expect(findings).toHaveLength(0);

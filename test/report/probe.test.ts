@@ -67,8 +67,7 @@ function probeResponses(): Response[] {
 		jsonResponse({
 			prompts: [
 				{
-					description:
-						`secret=${PROMPT_SECRET} Authorization: Bearer ${BEARER_SECRET}`,
+					description: `secret=${PROMPT_SECRET} Authorization: Bearer ${BEARER_SECRET}`,
 					name: 'prompt',
 				},
 			],
