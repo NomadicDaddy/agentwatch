@@ -51,7 +51,7 @@
 	"types": "./src/index.ts",
 	"files": [
 		"src",
-		"scripts",
+		"scripts/require-bun.ts",
 		"README.md",
 		"LICENSE",
 		"THIRD-PARTY-NOTICES.md"
