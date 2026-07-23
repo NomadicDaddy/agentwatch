@@ -16,6 +16,8 @@
 import type { ArtifactType, Finding, FindingGroup, Severity } from '../rules/types.ts';
 import type { AgentSource } from '../scanner/targets.ts';
 
+import { maskSecrets } from '../util/mask.ts';
+
 export interface ScanInventory {
 	/** Artifact counts keyed by agent name, then by artifact type. */
 	readonly artifactCounts: Readonly<
@@ -182,7 +184,7 @@ function renderFinding(finding: Finding, lines: string[]): void {
 	lines.push(`      Signals:  ${signals}`);
 	lines.push(`      Score:    ${finding.score} (confidence: ${finding.confidence})`);
 	if (finding.evidence !== undefined && finding.evidence.length > 0) {
-		lines.push(`      Evidence: ${finding.evidence}`);
+		lines.push(`      Evidence: ${maskSecrets(finding.evidence)}`);
 	}
 	if (finding.severity === 'high' || finding.severity === 'critical') {
 		lines.push(`      Why this matters: ${GROUP_RATIONALE[finding.group]}`);
