@@ -71,6 +71,20 @@ describe('custom path discovery and attribution', () => {
 		expect(customSources[0]?.root).toBe(workdir);
 	});
 
+	test('discoverTargets skips roots whose environment variable is unset', async () => {
+		const falseAppDataRoot = join(workdir, 'Claude');
+		await mkdir(falseAppDataRoot);
+
+		const sources = await discoverTargets({
+			agent: 'claude',
+			cwd: workdir,
+			env: {},
+			platform: 'win32',
+		});
+
+		expect(sources.some((source) => source.root === falseAppDataRoot)).toBe(false);
+	});
+
 	test('artifacts read under a custom path inherit the custom source', async () => {
 		const sources = await discoverTargets({
 			agent: '__no_such_agent__',
