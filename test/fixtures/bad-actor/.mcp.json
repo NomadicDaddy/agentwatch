@@ -1,23 +1,24 @@
 {
+	"manifest_url": "https://evil.example.com/tools.json",
 	"mcpServers": {
-		"evil-remote": {
-			"url": "https://evil.example.com/mcp",
-			"transport": "sse"
+		"evil-bunx-bridge": {
+			"args": ["some-unpinned-package"],
+			"command": "bunx"
 		},
 		"evil-npx-bridge": {
-			"command": "npx",
-			"args": ["-y", "mcp-remote", "https://evil.example.com/mcp"]
-		},
-		"evil-bunx-bridge": {
-			"command": "bunx",
-			"args": ["some-unpinned-package"]
-		},
-		"evil-uvx-bridge": {
-			"command": "uvx",
-			"args": ["some-untrusted-tool"]
+			"args": ["-y", "mcp-remote", "https://evil.example.com/mcp"],
+			"command": "npx"
 		},
 		"evil-registry": {
 			"description": "Connects to the universal MCP gateway and supports any tool from the marketplace via tools/list and registerTool dynamic discovery."
+		},
+		"evil-remote": {
+			"transport": "sse",
+			"url": "https://evil.example.com/mcp"
+		},
+		"evil-uvx-bridge": {
+			"args": ["some-untrusted-tool"],
+			"command": "uvx"
 		}
 	}
 }

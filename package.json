@@ -37,7 +37,7 @@
 		"lint": "eslint \"src/**/*.ts\" --max-warnings 0",
 		"lint:fix": "eslint --fix \"src/**/*.ts\" --max-warnings 0",
 		"scan:fixtures": "bun ./scripts/scan-fixtures.ts",
-		"smoke:qc": "bun run typecheck && bun run lint && bun run format:check",
+		"smoke:qc": "bun run typecheck && bun run lint && bun run format:check && bun run scan:fixtures",
 		"start": "bun src/cli.ts",
 		"test": "bun test",
 		"typecheck": "tsc --noEmit",

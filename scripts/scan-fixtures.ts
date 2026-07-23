@@ -18,7 +18,11 @@ import path from 'node:path';
 interface JsonFinding {
 	readonly ruleId: string;
 	readonly severity: string;
-	readonly source: { readonly customPath: boolean };
+	readonly source: {
+		readonly agent: string;
+		readonly customPath: boolean;
+		readonly root: string;
+	};
 }
 
 interface JsonReport {
@@ -47,10 +51,14 @@ const EXPECTED_RULE_IDS: readonly string[] = [
 const FIXTURE_DIR = path.resolve(import.meta.dir, '..', 'test', 'fixtures', 'bad-actor');
 const CLI_ENTRY = path.resolve(import.meta.dir, '..', 'src', 'cli.ts');
 
-const result = spawnSync('bun', [CLI_ENTRY, 'scan', '--path', FIXTURE_DIR, '--all', '--json'], {
-	encoding: 'utf8',
-	maxBuffer: 64 * 1024 * 1024,
-});
+const result = spawnSync(
+	'bun',
+	[CLI_ENTRY, 'scan', '--agent', 'custom', '--path', FIXTURE_DIR, '--all', '--json'],
+	{
+		encoding: 'utf8',
+		maxBuffer: 64 * 1024 * 1024,
+	}
+);
 
 if (result.error) {
 	process.stderr.write(`fixture scan failed to spawn: ${result.error.message}\n`);
@@ -70,9 +78,19 @@ try {
 const seen = new Set<string>();
 let fixtureFindings = 0;
 const fixtureSeverityCounts: Record<string, number> = {};
+const unexpectedSources = new Set<string>();
 for (const group of report.findings) {
 	for (const finding of group.findings) {
-		if (!finding.source.customPath) continue;
+		const isFixtureSource =
+			finding.source.agent === 'custom' &&
+			finding.source.customPath &&
+			path.resolve(finding.source.root) === FIXTURE_DIR;
+		if (!isFixtureSource) {
+			unexpectedSources.add(
+				`${finding.source.agent}:${finding.source.customPath}:${finding.source.root}`
+			);
+			continue;
+		}
 		seen.add(finding.ruleId);
 		fixtureFindings += 1;
 		fixtureSeverityCounts[finding.severity] =
@@ -85,14 +103,12 @@ const unexpected = [...seen].filter((id) => !EXPECTED_RULE_IDS.includes(id));
 
 const lines: string[] = [];
 lines.push(`Fixture scan: ${FIXTURE_DIR}`);
+lines.push(`Fixture findings: ${fixtureFindings} (${report.summary.totalFindings} total)`);
+lines.push('Sources: custom fixture root only');
 lines.push(
-	`Fixture findings: ${fixtureFindings} (filtered from ${report.summary.totalFindings} total)`
-);
-lines.push(
-	'  ' +
-		Object.entries(fixtureSeverityCounts)
-			.map(([sev, n]) => `${sev}=${n}`)
-			.join(' ')
+	`  ${Object.entries(fixtureSeverityCounts)
+		.map(([sev, n]) => `${sev}=${n}`)
+		.join(' ')}`
 );
 lines.push('');
 lines.push('Rules fired:');
@@ -107,8 +123,24 @@ if (unexpected.length > 0) {
 	lines.push('Unexpected rule ids (drift — update EXPECTED_RULE_IDS or fixtures):');
 	for (const id of unexpected) lines.push(`  ? ${id}`);
 }
+if (unexpectedSources.size > 0 || fixtureFindings !== report.summary.totalFindings) {
+	lines.push('');
+	lines.push('Non-fixture findings detected (fixture scan must be isolated):');
+	for (const source of unexpectedSources) lines.push(`  ! ${source}`);
+	if (fixtureFindings !== report.summary.totalFindings) {
+		lines.push(
+			`  ! report total ${report.summary.totalFindings} does not match ${fixtureFindings} fixture findings`
+		);
+	}
+}
 
 process.stdout.write(`${lines.join('\n')}\n`);
 
-if (missing.length > 0) process.exit(1);
+if (
+	missing.length > 0 ||
+	unexpectedSources.size > 0 ||
+	fixtureFindings !== report.summary.totalFindings
+) {
+	process.exit(1);
+}
 process.exit(0);
