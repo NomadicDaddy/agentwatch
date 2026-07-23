@@ -78,6 +78,14 @@ afterAll(async () => {
 });
 
 describe('package version authority', () => {
+	test('declares and executes only the supported Bun runtime', () => {
+		expect(packageMetadata.engines).toEqual({ bun: '>=1.3.14' });
+
+		const cliVersion = runCli(['--version']);
+		expect(cliVersion.exitCode).toBe(0);
+		expect(cliVersion.stdout.trim()).toBe(packageMetadata.version);
+	});
+
 	test('shared runtime version matches package.json', () => {
 		expect(PACKAGE_VERSION).toBe(packageMetadata.version);
 	});
