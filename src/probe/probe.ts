@@ -152,6 +152,7 @@ class McpHttpClient {
 				body,
 				headers: this.buildHeaders(),
 				method: 'POST',
+				redirect: 'error',
 				signal: controller.signal,
 			});
 		} finally {

@@ -44,15 +44,32 @@ function probeResponses(): Response[] {
 	];
 }
 
-async function captureProbeOutput(json: boolean, responses: Response[]): Promise<string> {
+async function captureStdout(
+	action: () => Promise<number>
+): Promise<{ exitCode: number; output: string }> {
 	const output: string[] = [];
 	const writeSpy = spyOn(process.stdout, 'write').mockImplementation((chunk) => {
 		output.push(String(chunk));
 		return true;
 	});
+
+	try {
+		const exitCode = await action();
+		return { exitCode, output: output.join('') };
+	} finally {
+		writeSpy.mockRestore();
+	}
+}
+
+async function captureProbeOutput(
+	json: boolean,
+	responses: Response[],
+	requestOptions?: RequestInit[]
+): Promise<string> {
 	const originalFetch = globalThis.fetch;
 	Object.assign(globalThis, {
-		fetch: async () => {
+		fetch: async (_input: Request | string | URL, init?: RequestInit) => {
+			if (init) requestOptions?.push(init);
 			const response = responses.shift();
 			if (!response) throw new Error('Unexpected probe request');
 			return response;
@@ -60,13 +77,13 @@ async function captureProbeOutput(json: boolean, responses: Response[]): Promise
 	});
 
 	try {
-		await runProbe(`https://example.test/mcp?access_token=${URL_SECRET}`, { json });
+		const result = await captureStdout(() =>
+			runProbe(`https://example.test/mcp?access_token=${URL_SECRET}`, { json })
+		);
+		return result.output;
 	} finally {
 		Object.assign(globalThis, { fetch: originalFetch });
-		writeSpy.mockRestore();
 	}
-
-	return output.join('');
 }
 
 describe('probe report credential masking', () => {
@@ -104,5 +121,55 @@ describe('probe report credential masking', () => {
 
 		expect(output).not.toContain(ERROR_SECRET);
 		expect(output).toContain('token=erro***');
+	});
+});
+
+describe('probe redirect safety', () => {
+	test('rejects redirects on every probe request', async () => {
+		const requestOptions: RequestInit[] = [];
+
+		await captureProbeOutput(false, probeResponses(), requestOptions);
+
+		expect(requestOptions).toHaveLength(5);
+		expect(requestOptions.every((options) => options.redirect === 'error')).toBe(true);
+	});
+
+	test('does not request a redirect destination and reports failures safely', async () => {
+		let destinationRequests = 0;
+		const destination = Bun.serve({
+			fetch: () => {
+				destinationRequests++;
+				return new Response('unexpected destination request');
+			},
+			hostname: '127.0.0.1',
+			port: 0,
+		});
+		const source = Bun.serve({
+			fetch: () =>
+				Response.redirect(`http://127.0.0.1:${destination.port}/private-target`, 302),
+			hostname: '127.0.0.1',
+			port: 0,
+		});
+
+		try {
+			const url = `http://127.0.0.1:${source.port}/mcp`;
+			const human = await captureStdout(() => runProbe(url, { json: false }));
+			const json = await captureStdout(() => runProbe(url, { json: true }));
+			const payload = JSON.parse(json.output) as {
+				probe: { errors: { stage: string }[] };
+			};
+
+			expect(human.exitCode).toBe(1);
+			expect(human.output).toContain('Errors');
+			expect(human.output).toContain('[initialize]');
+			expect(json.exitCode).toBe(1);
+			expect(payload.probe.errors).toEqual([
+				expect.objectContaining({ stage: 'initialize' }),
+			]);
+			expect(destinationRequests).toBe(0);
+		} finally {
+			await source.stop(true);
+			await destination.stop(true);
+		}
 	});
 });
