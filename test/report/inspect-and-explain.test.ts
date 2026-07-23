@@ -70,6 +70,15 @@ describe('focused inspection and explanations', () => {
 		expect(result.stdout).toContain('Pin launcher targets to an exact version');
 	});
 
+	test('explain recognizes correlated critical findings from the shipped CLI', () => {
+		const result = runCli(['explain', 'agent.critical-signal-combination']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stderr).toBe('');
+		expect(result.stdout).toContain('Rule:  agent.critical-signal-combination');
+		expect(result.stdout).toContain('Review the constituent findings as one capability chain');
+	});
+
 	test('CLI explanation lists all five shipped commands', () => {
 		const result = runCli(['explain', 'cli']);
 

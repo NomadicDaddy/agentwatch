@@ -15,9 +15,13 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
+import { CRITICAL_CORRELATION_RULE_ID } from '../src/scanner/finding-correlation.ts';
+
 interface JsonFinding {
+	readonly file?: string;
 	readonly ruleId: string;
 	readonly severity: string;
+	readonly signals: readonly string[];
 	readonly source: {
 		readonly agent: string;
 		readonly customPath: boolean;
@@ -49,6 +53,7 @@ const EXPECTED_RULE_IDS: readonly string[] = [
 ];
 
 const FIXTURE_DIR = path.resolve(import.meta.dir, '..', 'test', 'fixtures', 'bad-actor');
+const EXPECTED_CRITICAL_FILE = path.join(FIXTURE_DIR, '.mcp.json');
 const CLI_ENTRY = path.resolve(import.meta.dir, '..', 'src', 'cli.ts');
 
 const result = spawnSync(
@@ -78,6 +83,7 @@ try {
 const seen = new Set<string>();
 let fixtureFindings = 0;
 const fixtureSeverityCounts: Record<string, number> = {};
+const criticalCorrelations: JsonFinding[] = [];
 const unexpectedSources = new Set<string>();
 for (const group of report.findings) {
 	for (const finding of group.findings) {
@@ -91,7 +97,11 @@ for (const group of report.findings) {
 			);
 			continue;
 		}
-		seen.add(finding.ruleId);
+		if (finding.ruleId === CRITICAL_CORRELATION_RULE_ID) {
+			criticalCorrelations.push(finding);
+		} else {
+			seen.add(finding.ruleId);
+		}
 		fixtureFindings += 1;
 		fixtureSeverityCounts[finding.severity] =
 			(fixtureSeverityCounts[finding.severity] ?? 0) + 1;
@@ -100,6 +110,12 @@ for (const group of report.findings) {
 
 const missing = EXPECTED_RULE_IDS.filter((id) => !seen.has(id));
 const unexpected = [...seen].filter((id) => !EXPECTED_RULE_IDS.includes(id));
+const expectedCriticalCorrelations = criticalCorrelations.filter(
+	(finding) =>
+		finding.severity === 'critical' &&
+		finding.file !== undefined &&
+		path.resolve(finding.file) === EXPECTED_CRITICAL_FILE
+);
 
 const lines: string[] = [];
 lines.push(`Fixture scan: ${FIXTURE_DIR}`);
@@ -110,6 +126,8 @@ lines.push(
 		.map(([sev, n]) => `${sev}=${n}`)
 		.join(' ')}`
 );
+lines.push('');
+lines.push(`Critical correlations: ${criticalCorrelations.length} (${EXPECTED_CRITICAL_FILE})`);
 lines.push('');
 lines.push('Rules fired:');
 for (const id of [...seen].sort()) lines.push(`  + ${id}`);
@@ -133,11 +151,20 @@ if (unexpectedSources.size > 0 || fixtureFindings !== report.summary.totalFindin
 		);
 	}
 }
+if (criticalCorrelations.length !== 1 || expectedCriticalCorrelations.length !== 1) {
+	lines.push('');
+	lines.push('Critical correlation mismatch:');
+	for (const finding of criticalCorrelations) {
+		lines.push(`  ! ${finding.severity} ${finding.file ?? '(no file)'}`);
+	}
+}
 
 process.stdout.write(`${lines.join('\n')}\n`);
 
 if (
 	missing.length > 0 ||
+	criticalCorrelations.length !== 1 ||
+	expectedCriticalCorrelations.length !== 1 ||
 	unexpectedSources.size > 0 ||
 	fixtureFindings !== report.summary.totalFindings
 ) {

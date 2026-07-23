@@ -53,6 +53,23 @@ const RULE_EXPLANATIONS: Readonly<Record<string, RuleExplanation>> = {
 			'An artifact references a known credential file (`.env`, `credentials.json`, browser profile, AWS/GCP/SSH key paths). Reading these files via an agent capability leaks secrets.',
 		title: 'Credential file referenced',
 	},
+	'agent.critical-signal-combination': {
+		group: 'remote-capabilities',
+		remediation: [
+			'Review the constituent findings as one capability chain, not as isolated warnings.',
+			'Remove or constrain at least one capability that creates the critical combination.',
+		],
+		signals: [
+			'remote-endpoint',
+			'dynamic-registry',
+			'memory-request',
+			'local-execution',
+			'credential-reach',
+		],
+		summary:
+			'One agent artifact combines signals that cross the automatic critical-escalation boundary. The finding evidence identifies the rule findings that contributed each signal.',
+		title: 'Critical signal combination',
+	},
 	'agent.dynamic-tool-registry': {
 		group: 'dynamic-tool-surfaces',
 		remediation: [

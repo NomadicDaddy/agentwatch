@@ -29,6 +29,7 @@ import { unpinnedExecutionBridgeRule } from '../rules/unpinned-execution-bridge.
 import { untrustedInstallSourceRule } from '../rules/untrusted-install-source.ts';
 import { getSupportedAgentNames, isSupportedAgent } from './agent-registry.ts';
 import { readArtifacts } from './artifact-reader.ts';
+import { correlateFindings } from './finding-correlation.ts';
 import { discoverTargets, type AgentSource } from './targets.ts';
 
 export interface RunScanOptions {
@@ -160,7 +161,8 @@ async function executeRules(
 		onRule?.(rule, produced.length);
 		collected.push(...produced);
 	}
-	return sortFindings(dedupeFindings(collected));
+	const deduplicated = dedupeFindings(collected);
+	return sortFindings(correlateFindings(deduplicated));
 }
 
 function stderrProgress(message: string): void {
