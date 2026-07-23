@@ -4,12 +4,36 @@ import { runProbe } from '../../src/report/probe.ts';
 import { maskSecrets } from '../../src/util/mask.ts';
 
 const ERROR_SECRET = 'errorSecret123456';
+const AWS_SECRET = 'AKIA1234567890ABCDEF';
+const BASIC_SECRET = 'QWxhZGRpbjpvcGVu';
+const BEARER_SECRET = 'bearerCredential123';
+const GITHUB_SECRET = 'github_pat_1234567890abcdefgh';
+const GOOGLE_SECRET = 'AIza1234567890abcdefghijklmnopqrstuvwxy';
 const PROMPT_SECRET = 'promptSecret123456';
 const RESOURCE_SECRET = 'resourceSecret123456';
 const SCHEMA_SECRET = 'schemaSecret123456';
 const SERVER_SECRET = 'serverSecret123456';
 const TOOL_SECRET = 'toolSecret123456';
+const TOKEN_SECRET = 'customCredential123';
 const URL_SECRET = 'urlSecret123456';
+
+const FORMAT_SECRETS = [
+	AWS_SECRET,
+	BASIC_SECRET,
+	BEARER_SECRET,
+	GITHUB_SECRET,
+	GOOGLE_SECRET,
+	TOKEN_SECRET,
+] as const;
+
+const FORMAT_MASKS = [
+	'AKIA1234***',
+	'AIza1234***',
+	'github_pat_1234***',
+	'Authorization: Bearer bear***',
+	'Authorization: Basic QWxh***',
+	'Authorization: Token cust***',
+] as const;
 
 function jsonResponse(result: unknown): Response {
 	return new Response(JSON.stringify({ id: 1, jsonrpc: '2.0', result }));
@@ -20,13 +44,18 @@ function probeResponses(): Response[] {
 		jsonResponse({
 			capabilities: { prompts: {}, resources: {}, token: SCHEMA_SECRET },
 			protocolVersion: '2025-06-18',
-			serverInfo: { name: `token=${SERVER_SECRET}`, version: '1.0.0' },
+			serverInfo: {
+				name: `token=${SERVER_SECRET} aws=${AWS_SECRET}`,
+				version: `google=${GOOGLE_SECRET}`,
+			},
 		}),
 		new Response(null, { status: 204 }),
 		jsonResponse({
 			tools: [
 				{
-					description: `Bearer ${TOOL_SECRET}`,
+					description:
+						`${GITHUB_SECRET} Authorization: Basic ${BASIC_SECRET} ` +
+						`Bearer ${TOOL_SECRET}`,
 					inputSchema: {
 						properties: { token: { default: SCHEMA_SECRET } },
 						type: 'object',
@@ -35,10 +64,23 @@ function probeResponses(): Response[] {
 				},
 			],
 		}),
-		jsonResponse({ prompts: [{ description: `secret=${PROMPT_SECRET}`, name: 'prompt' }] }),
+		jsonResponse({
+			prompts: [
+				{
+					description:
+						`secret=${PROMPT_SECRET} Authorization: Bearer ${BEARER_SECRET}`,
+					name: 'prompt',
+				},
+			],
+		}),
 		jsonResponse({
 			resources: [
-				{ name: 'resource', uri: `https://example.test/data?api_key=${RESOURCE_SECRET}` },
+				{
+					name: 'resource',
+					uri:
+						`Authorization: Token ${TOKEN_SECRET} ` +
+						`https://example.test/data?api_key=${RESOURCE_SECRET}`,
+				},
 			],
 		}),
 	];
@@ -107,7 +149,12 @@ describe('probe report credential masking', () => {
 			]) {
 				expect(output).not.toContain(secret);
 			}
-			expect(output).toContain('***');
+			for (const secret of FORMAT_SECRETS) {
+				expect(output).not.toContain(secret);
+			}
+			for (const masked of FORMAT_MASKS) {
+				expect(output).toContain(masked);
+			}
 		}
 	});
 

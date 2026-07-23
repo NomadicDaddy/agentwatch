@@ -16,6 +16,12 @@ interface CliResult {
 const PROJECT_ROOT = resolve(import.meta.dir, '..', '..');
 const CLI_ENTRY = resolve(PROJECT_ROOT, 'src', 'cli.ts');
 const BAD_ACTOR_FIXTURE = resolve(PROJECT_ROOT, 'test', 'fixtures', 'bad-actor');
+const CREDENTIAL_FORMAT_FIXTURE = resolve(
+	PROJECT_ROOT,
+	'test',
+	'fixtures',
+	'credential-formats'
+);
 const SOURCE = makeSource();
 const INVENTORY: ScanInventory = {
 	artifactCounts: { claude: { 'connector-config': 1 } },
@@ -48,6 +54,24 @@ const FIXTURE_SECRETS = [
 	'FIXTURE_NOT_REAL_REFRESH',
 	'FIXTURE_NOT_REAL_KEY',
 	'FIXTURE_NOT_REAL_BEARER',
+] as const;
+
+const CREDENTIAL_FORMAT_SECRETS = [
+	'AKIA1234567890ABCDEF',
+	'AIza1234567890abcdefghijklmnopqrstuvwxy',
+	'github_pat_12345678',
+	'bearer12',
+	'QWxhZDp4',
+	'custom12',
+] as const;
+
+const CREDENTIAL_FORMAT_MASKS = [
+	'AKIA1234***',
+	'AIza1234***',
+	'github_pat_1234***',
+	'Authorization: Bearer bear***',
+	'Authorization: Basic QWxh***',
+	'Authorization: Token cust***',
 ] as const;
 
 function makeFinding(evidence: string, index: number): Finding {
@@ -102,6 +126,37 @@ describe('human report credential masking', () => {
 		expect(result.stdout).toContain('FIXT***');
 		for (const secret of FIXTURE_SECRETS) {
 			expect(result.stdout).not.toContain(secret);
+		}
+	});
+
+	test('masks provider and Authorization credentials in shipped human and JSON scans', () => {
+		const outputs = [
+			runCli([
+				'scan',
+				'--path',
+				CREDENTIAL_FORMAT_FIXTURE,
+				'--agent',
+				'custom',
+				'--all',
+			]).stdout,
+			runCli([
+				'scan',
+				'--path',
+				CREDENTIAL_FORMAT_FIXTURE,
+				'--agent',
+				'custom',
+				'--json',
+			]).stdout,
+		];
+
+		expect(() => JSON.parse(outputs[1] ?? '')).not.toThrow();
+		for (const output of outputs) {
+			for (const secret of CREDENTIAL_FORMAT_SECRETS) {
+				expect(output).not.toContain(secret);
+			}
+			for (const masked of CREDENTIAL_FORMAT_MASKS) {
+				expect(output).toContain(masked);
+			}
 		}
 	});
 });

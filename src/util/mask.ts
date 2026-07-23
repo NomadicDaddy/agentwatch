@@ -8,11 +8,12 @@
  *
  * Patterns covered (per spec.md / feature.json):
  *   1. Prefixed API keys — `sk-…`, `pk-…`, `key-…`, etc.
- *   2. `Bearer <token>` headers.
- *   3. Quoted/unquoted values after `token:` / `key:` / `password:` / `secret:` / `api_key:`.
- *   4. Email addresses — `u***@domain.com`.
- *   5. Sensitive filesystem paths — `.ssh/`, `.aws/`, and `.env*` files.
- *   6. Long opaque alphanumeric tokens (40+ chars) as a final catch-all.
+ *   2. Provider credentials — AWS `AKIA…`, Google `AIza…`, and GitHub `github_pat_…`.
+ *   3. `Authorization: <scheme> <credentials>` and standalone `Bearer <token>` values.
+ *   4. Quoted/unquoted values after `token:` / `key:` / `password:` / `secret:` / `api_key:`.
+ *   5. Email addresses — `u***@domain.com`.
+ *   6. Sensitive filesystem paths — `.ssh/`, `.aws/`, and `.env*` files.
+ *   7. Long opaque alphanumeric tokens (40+ chars) as a final catch-all.
  */
 
 /** Visible prefix length kept when masking; tuned to remain useful for debugging. */
@@ -33,8 +34,21 @@ function maskTail(value: string, keep: number = KEEP_PREFIX): string {
 const API_KEY_REGEX =
 	/\b((?:sk|pk|rk|key|sess|ghp|gho|ghu|ghs|ghr|xoxb|xoxp)[-_])([A-Za-z0-9_-]{8,})\b/g;
 
-/** `Authorization: Bearer <token>` style. */
-const BEARER_REGEX = /\b(Bearer\s+)([A-Za-z0-9._-]{8,})/g;
+/** AWS access-key ID: the fixed `AKIA` marker followed by its 16-character identifier. */
+const AWS_ACCESS_KEY_ID_REGEX = /\b(AKIA)([A-Z0-9]{16})\b/g;
+
+/** Google API key: the fixed `AIza` marker followed by its provider-issued key body. */
+const GOOGLE_API_KEY_REGEX = /\b(AIza)([A-Za-z0-9_-]{20,})\b/g;
+
+/** GitHub fine-grained personal access token. */
+const GITHUB_FINE_GRAINED_TOKEN_REGEX = /\b(github_pat_)([A-Za-z0-9_]{8,})\b/g;
+
+/** Case-insensitive `Authorization: <scheme> <credentials>` header. */
+const AUTHORIZATION_HEADER_REGEX =
+	/(\bauthorization["']?\s*[:=]\s*)(["']?)([A-Za-z][A-Za-z0-9._~+/-]*\s+)([^"'\s,;}\]]{4,})(\2)/gi;
+
+/** Standalone `Bearer <token>` value. */
+const BEARER_REGEX = /\b(Bearer\s+)([A-Za-z0-9._-]{8,})/gi;
 
 /** `key: value` / `"key": "value"` for sensitive keys. Matches both quoted and bare values. */
 const KEYED_SECRET_REGEX =
@@ -52,6 +66,13 @@ const ENV_FILE_REGEX = /(\.env)(\.[A-Za-z0-9_.-]+)?\b/g;
 /** Generic long opaque tokens (40+ alphanumerics). Last-resort catch-all. */
 const GENERIC_TOKEN_REGEX = new RegExp(`\\b([A-Za-z0-9_-]{${GENERIC_TOKEN_MIN_LENGTH},})\\b`, 'g');
 
+function maskPrefixedCredential(text: string, pattern: RegExp): string {
+	return text.replace(
+		pattern,
+		(_match, prefix: string, body: string) => `${prefix}${maskTail(body)}`
+	);
+}
+
 /**
  * Mask likely credentials in `text`. Always returns a string; never throws.
  *
@@ -66,6 +87,14 @@ export function maskSecrets(text: string): string {
 	out = out.replace(
 		API_KEY_REGEX,
 		(_match, prefix: string, body: string) => `${prefix}${maskTail(body)}`
+	);
+	out = maskPrefixedCredential(out, AWS_ACCESS_KEY_ID_REGEX);
+	out = maskPrefixedCredential(out, GOOGLE_API_KEY_REGEX);
+	out = maskPrefixedCredential(out, GITHUB_FINE_GRAINED_TOKEN_REGEX);
+	out = out.replace(
+		AUTHORIZATION_HEADER_REGEX,
+		(_match, lead: string, quote: string, scheme: string, credentials: string) =>
+			`${lead}${quote}${scheme}${maskTail(credentials)}${quote}`
 	);
 	out = out.replace(
 		BEARER_REGEX,
