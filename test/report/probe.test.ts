@@ -171,6 +171,73 @@ describe('probe report credential masking', () => {
 	});
 });
 
+describe('probe response validation', () => {
+	test('reports wrong-type initialize fields in human and JSON output', async () => {
+		const responses = (): Response[] => [
+			jsonResponse({
+				capabilities: {},
+				protocolVersion: 20250618,
+				serverInfo: { name: 42, version: null },
+			}),
+		];
+
+		const human = await captureProbeOutput(false, responses());
+		const json = await captureProbeOutput(true, responses());
+		const payload = JSON.parse(json) as {
+			probe: {
+				errors: { message: string; stage: string }[];
+				serverInfo?: unknown;
+			};
+		};
+
+		expect(human).toContain('[initialize] Invalid initialize result');
+		expect(payload.probe.errors).toEqual([
+			expect.objectContaining({
+				message: expect.stringContaining('Invalid initialize result'),
+				stage: 'initialize',
+			}),
+		]);
+		expect(payload.probe.serverInfo).toBeUndefined();
+	});
+
+	test('reports wrong-type and missing list fields without partial entries', async () => {
+		const responses = (): Response[] => [
+			jsonResponse({
+				capabilities: { prompts: {}, resources: {} },
+				protocolVersion: '2025-06-18',
+				serverInfo: { name: 'test', version: '1.0.0' },
+			}),
+			new Response(null, { status: 204 }),
+			jsonResponse({ tools: [{ name: 42 }] }),
+			jsonResponse({ prompts: [{ description: 'missing name' }] }),
+			jsonResponse({ resources: [{ name: 'missing uri' }] }),
+		];
+
+		const human = await captureProbeOutput(false, responses());
+		const json = await captureProbeOutput(true, responses());
+		const payload = JSON.parse(json) as {
+			probe: {
+				errors: { stage: string }[];
+				prompts: unknown[];
+				resources: unknown[];
+				tools: unknown[];
+			};
+		};
+
+		for (const stage of ['tools/list', 'prompts/list', 'resources/list']) {
+			expect(human).toContain(`[${stage}] Invalid ${stage} result`);
+		}
+		expect(payload.probe.errors.map((error) => error.stage)).toEqual([
+			'tools/list',
+			'prompts/list',
+			'resources/list',
+		]);
+		expect(payload.probe.tools).toEqual([]);
+		expect(payload.probe.prompts).toEqual([]);
+		expect(payload.probe.resources).toEqual([]);
+	});
+});
+
 describe('probe redirect safety', () => {
 	test('rejects redirects on every probe request', async () => {
 		const requestOptions: RequestInit[] = [];

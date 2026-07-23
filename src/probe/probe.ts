@@ -11,6 +11,8 @@
  * as a single SSE event; both forms are accepted.
  */
 
+import { z } from 'zod';
+
 const PROTOCOL_VERSION = '2024-11-05';
 const CLIENT_NAME = 'agentwatch';
 const CLIENT_VERSION = '0.1.0';
@@ -60,23 +62,67 @@ export interface ProbeResult {
 	readonly url: string;
 }
 
-interface JsonRpcError {
-	readonly code: number;
-	readonly message: string;
-}
+const JSON_RPC_RESPONSE_SCHEMA = z
+	.object({
+		error: z.object({ code: z.number(), message: z.string() }).optional(),
+		id: z.union([z.number(), z.string()]).optional(),
+		jsonrpc: z.literal('2.0'),
+		result: z.unknown().optional(),
+	})
+	.refine((response) => response.error !== undefined || response.result !== undefined, {
+		message: 'response must include result or error',
+	});
+const INITIALIZE_RESULT_SCHEMA = z.object({
+	capabilities: z.record(z.string(), z.unknown()),
+	protocolVersion: z.string(),
+	serverInfo: z.object({ name: z.string(), version: z.string() }),
+});
+const TOOLS_LIST_RESULT_SCHEMA = z.object({
+	tools: z.array(
+		z
+			.object({
+				description: z.string().optional(),
+				inputSchema: z.unknown().optional(),
+				name: z.string(),
+			})
+			.transform((tool): McpToolInfo => ({
+				...(tool.description !== undefined ? { description: tool.description } : {}),
+				...(tool.inputSchema !== undefined ? { inputSchema: tool.inputSchema } : {}),
+				name: tool.name,
+			}))
+	),
+});
+const PROMPTS_LIST_RESULT_SCHEMA = z.object({
+	prompts: z.array(
+		z
+			.object({ description: z.string().optional(), name: z.string() })
+			.transform((prompt): McpPromptInfo => ({
+				...(prompt.description !== undefined ? { description: prompt.description } : {}),
+				name: prompt.name,
+			}))
+	),
+});
+const RESOURCES_LIST_RESULT_SCHEMA = z.object({
+	resources: z.array(
+		z
+			.object({
+				description: z.string().optional(),
+				mimeType: z.string().optional(),
+				name: z.string().optional(),
+				uri: z.string(),
+			})
+			.transform((resource): McpResourceInfo => ({
+				...(resource.description !== undefined
+					? { description: resource.description }
+					: {}),
+				...(resource.mimeType !== undefined ? { mimeType: resource.mimeType } : {}),
+				...(resource.name !== undefined ? { name: resource.name } : {}),
+				uri: resource.uri,
+			}))
+	),
+});
 
-interface JsonRpcResponse {
-	readonly error?: JsonRpcError;
-	readonly id?: number | string;
-	readonly jsonrpc: '2.0';
-	readonly result?: unknown;
-}
-
-interface InitializeResult {
-	readonly capabilities: Record<string, unknown>;
-	readonly protocolVersion: string;
-	readonly serverInfo: { readonly name: string; readonly version: string };
-}
+type InitializeResult = z.infer<typeof INITIALIZE_RESULT_SCHEMA>;
 
 class McpHttpClient {
 	private nextId = 1;
@@ -103,7 +149,7 @@ class McpHttpClient {
 		await this.fetchWithTimeout(body);
 	}
 
-	async request<T>(method: string, params?: unknown): Promise<T> {
+	async request<T>(method: string, resultSchema: z.ZodType<T>, params?: unknown): Promise<T> {
 		const id = this.nextId++;
 		const body = JSON.stringify({
 			id,
@@ -125,12 +171,17 @@ class McpHttpClient {
 
 		const text = await response.text();
 		const parsed = parseJsonRpc(text);
-		if (!parsed) throw new Error('Empty or unparseable response body');
-		if (parsed.error) {
-			throw new Error(`JSON-RPC ${parsed.error.code}: ${parsed.error.message}`);
+		if (parsed === null) throw new Error('Empty or unparseable response body');
+		const envelope = JSON_RPC_RESPONSE_SCHEMA.safeParse(parsed);
+		if (!envelope.success) {
+			throw validationError('JSON-RPC response', envelope.error);
 		}
-		if (parsed.result === undefined) throw new Error('Response missing result');
-		return parsed.result as T;
+		if (envelope.data.error) {
+			throw new Error(`JSON-RPC ${envelope.data.error.code}: ${envelope.data.error.message}`);
+		}
+		const result = resultSchema.safeParse(envelope.data.result);
+		if (!result.success) throw validationError(`${method} result`, result.error);
+		return result.data;
 	}
 
 	private buildHeaders(): Record<string, string> {
@@ -161,14 +212,14 @@ class McpHttpClient {
 	}
 }
 
-function parseJsonRpc(text: string): JsonRpcResponse | null {
+function parseJsonRpc(text: string): null | unknown {
 	const trimmed = text.trim();
 	if (!trimmed) return null;
 	if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
 		try {
 			const parsed: unknown = JSON.parse(trimmed);
-			if (Array.isArray(parsed)) return (parsed[0] as JsonRpcResponse | undefined) ?? null;
-			return parsed as JsonRpcResponse;
+			if (Array.isArray(parsed)) return parsed[0] ?? null;
+			return parsed;
 		} catch {
 			// fall through to SSE parsing
 		}
@@ -178,7 +229,8 @@ function parseJsonRpc(text: string): JsonRpcResponse | null {
 		const payload = line.slice(5).trim();
 		if (!payload || payload === '[DONE]') continue;
 		try {
-			return JSON.parse(payload) as JsonRpcResponse;
+			const parsed: unknown = JSON.parse(payload);
+			return parsed;
 		} catch {
 			continue;
 		}
@@ -194,43 +246,10 @@ function errMsg(err: unknown): string {
 	return String(err);
 }
 
-function asTools(value: unknown): readonly McpToolInfo[] {
-	if (!value || typeof value !== 'object') return [];
-	const list = (value as { tools?: unknown }).tools;
-	if (!Array.isArray(list)) return [];
-	return list
-		.filter((t): t is Record<string, unknown> => typeof t === 'object' && t !== null)
-		.map((t) => ({
-			...(typeof t.description === 'string' ? { description: t.description } : {}),
-			...(t.inputSchema !== undefined ? { inputSchema: t.inputSchema } : {}),
-			name: typeof t.name === 'string' ? t.name : '(unnamed)',
-		}));
-}
-
-function asPrompts(value: unknown): readonly McpPromptInfo[] {
-	if (!value || typeof value !== 'object') return [];
-	const list = (value as { prompts?: unknown }).prompts;
-	if (!Array.isArray(list)) return [];
-	return list
-		.filter((p): p is Record<string, unknown> => typeof p === 'object' && p !== null)
-		.map((p) => ({
-			...(typeof p.description === 'string' ? { description: p.description } : {}),
-			name: typeof p.name === 'string' ? p.name : '(unnamed)',
-		}));
-}
-
-function asResources(value: unknown): readonly McpResourceInfo[] {
-	if (!value || typeof value !== 'object') return [];
-	const list = (value as { resources?: unknown }).resources;
-	if (!Array.isArray(list)) return [];
-	return list
-		.filter((r): r is Record<string, unknown> => typeof r === 'object' && r !== null)
-		.map((r) => ({
-			...(typeof r.description === 'string' ? { description: r.description } : {}),
-			...(typeof r.mimeType === 'string' ? { mimeType: r.mimeType } : {}),
-			...(typeof r.name === 'string' ? { name: r.name } : {}),
-			uri: typeof r.uri === 'string' ? r.uri : '(missing-uri)',
-		}));
+function validationError(label: string, error: z.ZodError): Error {
+	const issue = error.issues[0];
+	const location = issue && issue.path.length > 0 ? ` at ${issue.path.join('.')}` : '';
+	return new Error(`Invalid ${label}${location}: ${issue?.message ?? 'schema mismatch'}`);
 }
 
 /**
@@ -261,7 +280,7 @@ export async function probeMcp(options: ProbeOptions): Promise<ProbeResult> {
 	let resources: readonly McpResourceInfo[] = [];
 
 	try {
-		init = await client.request<InitializeResult>('initialize', {
+		init = await client.request('initialize', INITIALIZE_RESULT_SCHEMA, {
 			capabilities: {},
 			clientInfo: { name: CLIENT_NAME, version: CLIENT_VERSION },
 			protocolVersion: PROTOCOL_VERSION,
@@ -277,7 +296,7 @@ export async function probeMcp(options: ProbeOptions): Promise<ProbeResult> {
 
 	if (init) {
 		try {
-			tools = asTools(await client.request('tools/list', {}));
+			tools = (await client.request('tools/list', TOOLS_LIST_RESULT_SCHEMA, {})).tools;
 		} catch (err) {
 			errors.push({ message: errMsg(err), stage: 'tools/list' });
 		}
@@ -285,14 +304,17 @@ export async function probeMcp(options: ProbeOptions): Promise<ProbeResult> {
 		const caps = init.capabilities ?? {};
 		if (caps.prompts) {
 			try {
-				prompts = asPrompts(await client.request('prompts/list', {}));
+				prompts = (await client.request('prompts/list', PROMPTS_LIST_RESULT_SCHEMA, {}))
+					.prompts;
 			} catch (err) {
 				errors.push({ message: errMsg(err), stage: 'prompts/list' });
 			}
 		}
 		if (caps.resources) {
 			try {
-				resources = asResources(await client.request('resources/list', {}));
+				resources = (
+					await client.request('resources/list', RESOURCES_LIST_RESULT_SCHEMA, {})
+				).resources;
 			} catch (err) {
 				errors.push({ message: errMsg(err), stage: 'resources/list' });
 			}
