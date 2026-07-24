@@ -31,6 +31,7 @@
 	"scripts": {
 		"build": "bun build ./src/cli.ts --target=bun --outdir=dist",
 		"compile": "bun build ./src/cli.ts --compile --outfile=dist/agentwatch",
+		"deploy": "echo 'No deploy command is configured for this local target. See .aidd/deployment.md.' && exit 1",
 		"format": "prettier --write \"{src,scripts,test}/**/*.ts\" \"*.js\"",
 		"format:check": "prettier --check \"{src,scripts,test}/**/*.ts\" \"*.js\"",
 		"lint": "eslint \"{src,scripts,test}/**/*.ts\" \"*.js\" --max-warnings 0",
