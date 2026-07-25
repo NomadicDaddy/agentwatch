@@ -75,6 +75,56 @@ describe('scanner finding correlation', () => {
 		});
 	}
 
+	test('does not combine signals from distant entries in one registry file', () => {
+		// Simulates a marketplace catalog: a remote URL on one line and a
+		// credential reference far below it belong to unrelated plugin entries.
+		const findings = [
+			makeFinding({ index: 26, signal: Signal.RemoteEndpoint }),
+			makeFinding({ index: 949, signal: Signal.CredentialReach }),
+		];
+
+		const correlated = correlateFindings(findings);
+
+		expect(correlated).toEqual(findings);
+		expect(correlated.some((finding) => finding.ruleId === CRITICAL_CORRELATION_RULE_ID)).toBe(
+			false
+		);
+	});
+
+	test('combines signals from a single nearby cluster within one file', () => {
+		const findings = [
+			makeFinding({ index: 4, signal: Signal.RemoteEndpoint }),
+			makeFinding({ index: 6, signal: Signal.CredentialReach }),
+		];
+
+		const correlated = correlateFindings(findings);
+		const critical = correlated.filter(
+			(finding) => finding.ruleId === CRITICAL_CORRELATION_RULE_ID
+		);
+
+		expect(critical).toHaveLength(1);
+		expect(critical[0]?.signals).toEqual(
+			[Signal.CredentialReach, Signal.RemoteEndpoint].sort()
+		);
+	});
+
+	test('does not synthesize a critical from a plugin registry catalog', () => {
+		// A minified marketplace catalog collapses every match onto line 1, so
+		// line proximity cannot separate unrelated entries — the registry guard
+		// must suppress correlation regardless.
+		const file = '/fixture/root/plugins/plugin-catalog-cache.json';
+		const findings = [
+			makeFinding({ file, index: 0, signal: Signal.RemoteEndpoint }),
+			makeFinding({ file, index: 0, signal: Signal.CredentialReach }),
+		];
+
+		const correlated = correlateFindings(findings);
+
+		expect(correlated.some((finding) => finding.ruleId === CRITICAL_CORRELATION_RULE_ID)).toBe(
+			false
+		);
+	});
+
 	test('does not combine signals from different artifacts', () => {
 		const findings = [
 			makeFinding({
