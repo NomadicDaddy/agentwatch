@@ -14,8 +14,11 @@ where its skills, MCP servers, instructions, and connector configs live. The
 special `custom` Agent is not discovered from the registry; it is created on the
 fly for directories the user passes via `--path`.
 
-Twelve Agents are recognized: claude, codex, opencode, kilocode, cursor,
-windsurf, windsurf-next, antigravity, pi, mcp, skills, and custom.
+Fourteen canonical Agents are recognized: claude, codex, opencode, kilo, cursor, windsurf,
+antigravity, gemini, grok, kiro, copilot, zcode, agents, and cline. Four agentwatch-only
+inspection surfaces are also recognized:
+windsurf-next, pi, mcp, skills, plus the special `custom` Agent that is created on the fly for
+directories the user passes via `--path`.
 
 ## Agent Source
 
@@ -273,5 +276,5 @@ Vendor-hosted is recorded as the `vendor-hosted` signal and scores 15 points.
 ## Ambiguities and Contradictions
 
 None identified. The spec, assertions document, and implementation agree on the
-twelve Agents, eight Artifact Types, six Finding Groups, twelve Rules, twelve
+nineteen Agents, eight Artifact Types, six Finding Groups, twelve Rules, twelve
 Signals, the scoring table, and the three critical-escalation combinations.

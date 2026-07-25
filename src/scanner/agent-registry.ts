@@ -33,6 +33,15 @@ export interface AgentInfo {
 	readonly paths: AgentPaths;
 }
 
+/**
+ * Build AgentPaths for a simple cross-platform dotfile home whose global root is
+ * identical on every platform (e.g. `~/.gemini`). Keeps the registry compact for
+ * the common case where darwin/linux/win32 all share one home path.
+ */
+function dotfile(cwd: string, home: string): AgentPaths {
+	return { cwd: [cwd], darwin: [home], linux: [home], win32: [home] };
+}
+
 const CLAUDE: AgentInfo = {
 	displayName: 'Claude',
 	knownFiles: ['claude_desktop_config.json', 'CLAUDE.md', 'settings.json'],
@@ -62,22 +71,22 @@ const OPENCODE: AgentInfo = {
 	knownFiles: ['config.json', 'opencode.json'],
 	name: 'opencode',
 	paths: {
-		cwd: ['./.opencode'],
-		darwin: ['~/.opencode'],
-		linux: ['~/.opencode'],
-		win32: ['~/.opencode'],
+		cwd: ['./.opencode', './.config/opencode'],
+		darwin: ['~/.config/opencode', '~/.opencode'],
+		linux: ['~/.config/opencode', '~/.opencode'],
+		win32: ['~/.config/opencode', '~/.opencode'],
 	},
 };
 
-const KILOCODE: AgentInfo = {
-	displayName: 'KiloCode',
+const KILO: AgentInfo = {
+	displayName: 'Kilo',
 	knownFiles: ['config.json'],
-	name: 'kilocode',
+	name: 'kilo',
 	paths: {
-		cwd: ['./.kilocode'],
-		darwin: ['~/.kilocode'],
-		linux: ['~/.kilocode'],
-		win32: ['~/.kilocode'],
+		cwd: ['./.kilo', './.kilocode'],
+		darwin: ['~/.config/kilo', '~/.kilocode'],
+		linux: ['~/.config/kilo', '~/.kilocode'],
+		win32: ['~/.config/kilo', '~/.kilocode'],
 	},
 };
 
@@ -98,10 +107,10 @@ const WINDSURF: AgentInfo = {
 	knownFiles: ['mcp_config.json', 'settings.json'],
 	name: 'windsurf',
 	paths: {
-		cwd: ['./.windsurf'],
-		darwin: ['~/Library/Application Support/Windsurf', '~/.windsurf'],
-		linux: ['~/.config/Windsurf', '~/.windsurf'],
-		win32: ['%APPDATA%/Windsurf', '~/.windsurf'],
+		cwd: ['./.windsurf', './.codeium/windsurf'],
+		darwin: ['~/Library/Application Support/Windsurf', '~/.windsurf', '~/.codeium/windsurf'],
+		linux: ['~/.config/Windsurf', '~/.windsurf', '~/.codeium/windsurf'],
+		win32: ['%APPDATA%/Windsurf', '~/.windsurf', '~/.codeium/windsurf'],
 	},
 };
 
@@ -122,11 +131,64 @@ const ANTIGRAVITY: AgentInfo = {
 	knownFiles: ['config.json'],
 	name: 'antigravity',
 	paths: {
-		cwd: ['./.antigravity'],
-		darwin: ['~/Library/Application Support/Antigravity', '~/.antigravity'],
-		linux: ['~/.config/Antigravity', '~/.antigravity'],
-		win32: ['%APPDATA%/Antigravity', '~/.antigravity'],
+		cwd: ['./.antigravity', './.gemini/antigravity'],
+		darwin: [
+			'~/Library/Application Support/Antigravity',
+			'~/.antigravity',
+			'~/.gemini/antigravity',
+		],
+		linux: ['~/.config/Antigravity', '~/.antigravity', '~/.gemini/antigravity'],
+		win32: ['%APPDATA%/Antigravity', '~/.antigravity', '~/.gemini/antigravity'],
 	},
+};
+
+const GEMINI: AgentInfo = {
+	displayName: 'Gemini',
+	knownFiles: ['settings.json'],
+	name: 'gemini',
+	paths: dotfile('./.gemini', '~/.gemini'),
+};
+
+const GROK: AgentInfo = {
+	displayName: 'Grok',
+	knownFiles: ['config.json'],
+	name: 'grok',
+	paths: dotfile('./.grok', '~/.grok'),
+};
+
+const KIRO: AgentInfo = {
+	displayName: 'Kiro',
+	knownFiles: ['config.json'],
+	name: 'kiro',
+	paths: dotfile('./.kiro', '~/.kiro'),
+};
+
+const COPILOT: AgentInfo = {
+	displayName: 'Copilot',
+	knownFiles: ['config.json'],
+	name: 'copilot',
+	paths: dotfile('./.copilot', '~/.copilot'),
+};
+
+const ZCODE: AgentInfo = {
+	displayName: 'Zcode',
+	knownFiles: ['config.json'],
+	name: 'zcode',
+	paths: dotfile('./.zcode', '~/.zcode'),
+};
+
+const AGENTS_HOME: AgentInfo = {
+	displayName: 'Generic Agents',
+	knownFiles: [],
+	name: 'agents',
+	paths: dotfile('./.agents', '~/.agents'),
+};
+
+const CLINE: AgentInfo = {
+	displayName: 'Cline',
+	knownFiles: ['config.json'],
+	name: 'cline',
+	paths: dotfile('./.cline', '~/.cline'),
 };
 
 const PI: AgentInfo = {
@@ -176,11 +238,18 @@ const AGENTS: readonly AgentInfo[] = [
 	CLAUDE,
 	CODEX,
 	OPENCODE,
-	KILOCODE,
+	KILO,
 	CURSOR,
 	WINDSURF,
 	WINDSURF_NEXT,
 	ANTIGRAVITY,
+	GEMINI,
+	GROK,
+	KIRO,
+	COPILOT,
+	ZCODE,
+	AGENTS_HOME,
+	CLINE,
 	PI,
 	MCP,
 	SKILLS,

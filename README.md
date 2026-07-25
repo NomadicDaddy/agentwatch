@@ -17,18 +17,31 @@ AgentWatch scans your local machine for installed AI-agent configurations and re
 
 ## Supported Agents
 
-| Agent         | Config Locations                                             |
-| ------------- | ------------------------------------------------------------ |
-| Claude        | `~/.claude`, `%APPDATA%/Claude/`, `./.claude`                |
-| Codex         | `~/.codex`, `./.codex`, `./AGENTS.md`                        |
-| OpenCode      | `~/.opencode`, `./.opencode`                                 |
-| KiloCode      | `~/.kilocode`, `./.kilocode`                                 |
-| Cursor        | `~/.cursor`, `%APPDATA%/Cursor/`, `./.cursor`                |
-| Windsurf      | `~/.windsurf`, `%APPDATA%/Windsurf/`, `./.windsurf`          |
-| Antigravity   | `~/.antigravity`, `%APPDATA%/Antigravity/`, `./.antigravity` |
-| Pi            | `~/.pi`, `%APPDATA%/Pi/`, `./.pi`                            |
-| Global Skills | `~/skills`, `./skills`                                       |
-| Global MCP    | `~/.mcp.json`, `./.mcp.json`                                 |
+| Agent         | Config Locations                                                               |
+| ------------- | ------------------------------------------------------------------------------ |
+| Claude        | `~/.claude`, `%APPDATA%/Claude/`, `./.claude`                                  |
+| Codex         | `~/.codex`, `./.codex`, `./AGENTS.md`                                          |
+| OpenCode      | `~/.config/opencode`, `~/.opencode`, `./.opencode`                            |
+| Kilo          | `~/.config/kilo`, `~/.kilocode`, `./.kilo`                                     |
+| Cursor        | `~/.cursor`, `%APPDATA%/Cursor/`, `./.cursor`                                  |
+| Windsurf      | `~/.codeium/windsurf`, `~/.windsurf`, `%APPDATA%/Windsurf/`, `./.windsurf`     |
+| Windsurf Next | `~/.windsurf-next`, `%APPDATA%/Windsurf-Next/`, `./.windsurf-next`             |
+| Antigravity   | `~/.gemini/antigravity`, `~/.antigravity`, `%APPDATA%/Antigravity/`, `./.antigravity` |
+| Gemini        | `~/.gemini`, `./.gemini`                                                       |
+| Grok          | `~/.grok`, `./.grok`                                                           |
+| Kiro          | `~/.kiro`, `./.kiro`                                                           |
+| Copilot       | `~/.copilot`, `./.copilot`                                                     |
+| Zcode         | `~/.zcode`, `./.zcode`                                                         |
+| Generic Agents | `~/.agents`, `./.agents`                                                      |
+| Cline         | `~/.cline`, `./.cline`                                                         |
+| Pi            | `~/.pi`, `%APPDATA%/Pi/`, `./.pi`                                              |
+| Global Skills | `~/skills`, `./skills`                                                         |
+| Global MCP    | `~/.mcp.json`, `./.mcp.json`                                                   |
+
+Fourteen of these form the canonical agent-home set agentwatch recognizes (Claude, Codex,
+OpenCode, Kilo, Cursor, Windsurf, Antigravity, Gemini, Grok, Kiro, Copilot, Zcode, Generic
+Agents, Cline). Windsurf Next, Pi, Global Skills, and Global MCP are agentwatch-only
+inspection surfaces.
 
 ## Installation
 
