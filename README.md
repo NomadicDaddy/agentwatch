@@ -34,14 +34,28 @@ AgentWatch scans your local machine for installed AI-agent configurations and re
 | Zcode         | `~/.zcode`, `./.zcode`                                                         |
 | Generic Agents | `~/.agents`, `./.agents`                                                      |
 | Cline         | `~/.cline`, `./.cline`                                                         |
+| Devin         | `~/.devin`, `~/.config/devin`, `%APPDATA%/devin/`, `./.devin`                  |
+| Devin Next    | `~/.devin-next`, `%APPDATA%/Devin - Next/`, `./.devin-next`                    |
+| T3 Code       | `~/.t3`, `%APPDATA%/t3code/`, `./t3.json`                                      |
 | Pi            | `~/.pi`, `%APPDATA%/Pi/`, `./.pi`                                              |
 | Global Skills | `~/skills`, `./skills`                                                         |
 | Global MCP    | `~/.mcp.json`, `./.mcp.json`                                                   |
 
-Fourteen of these form the canonical agent-home set agentwatch recognizes (Claude, Codex,
+Sixteen of these form the canonical agent-home set agentwatch recognizes (Claude, Codex,
 OpenCode, Kilo, Cursor, Windsurf, Antigravity, Gemini, Grok, Kiro, Copilot, Zcode, Generic
-Agents, Cline). Windsurf Next, Pi, Global Skills, and Global MCP are agentwatch-only
-inspection surfaces.
+Agents, Cline, Devin, T3 Code). Windsurf Next, Devin Next, Pi, Global Skills, and Global MCP are
+agentwatch-only inspection surfaces.
+
+Two of these homes spread across more roots than the usual single dotfile directory:
+
+- **Devin** ships as a VS Code fork, so it splits three ways: `~/.devin` is the editor shell
+  (`argv.json`, `extensions/`), `~/.config/devin` is the skills home, and `%APPDATA%/devin/`
+  is userData — `User/settings.json`, the `mcp/` config, and the Devin CLI's own `cli/` session
+  store. Devin Next is the separate prerelease channel, scanned the same way Windsurf Next is.
+- **T3 Code** is a GUI that drives the other agent CLIs rather than a CLI of its own. `~/.t3` is
+  the server runtime home (provider settings, per-provider caches, and `server-runtime.json`,
+  which records the live listening host, port, and pid); `%APPDATA%/t3code/` is the Electron
+  desktop shell's userData tree.
 
 ## Installation
 

@@ -10,7 +10,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { type AgentInfo, getAllAgents, getAgentByName } from '../../src/scanner/agent-registry.ts';
 
-// The canonical agent-home set recognized by this registry (14 homes).
+// The canonical agent-home set recognized by this registry (16 homes).
 const CANONICAL_AGENTS = [
 	'agents',
 	'antigravity',
@@ -19,22 +19,28 @@ const CANONICAL_AGENTS = [
 	'codex',
 	'copilot',
 	'cursor',
+	'devin',
 	'gemini',
 	'grok',
 	'kilo',
 	'kiro',
 	'opencode',
+	't3code',
 	'windsurf',
 	'zcode',
 ] as const;
 
-// Homes that exist under different paths on different machines must list both the
-// this-machine (legacy) path and the upstream-default path so either is discovered.
+// Homes reachable under more than one root must list every root so no install layout
+// is missed. For most agents that means the this-machine (legacy) path alongside the
+// upstream-default path; for t3code it means the runtime home alongside the separate
+// Electron userData tree the desktop shell writes.
 const BOTH_PATH_EXPECTATIONS: readonly (readonly [string, readonly string[]])[] = [
 	['kilo', ['~/.config/kilo', '~/.kilocode']],
 	['opencode', ['~/.config/opencode', '~/.opencode']],
 	['windsurf', ['~/.codeium/windsurf', '~/.windsurf']],
 	['antigravity', ['~/.gemini/antigravity', '~/.antigravity']],
+	['t3code', ['~/.t3', '%APPDATA%/t3code']],
+	['devin', ['~/.devin', '~/.config/devin', '%APPDATA%/devin']],
 ] as const;
 
 function allPathTemplates(agent: AgentInfo): readonly string[] {

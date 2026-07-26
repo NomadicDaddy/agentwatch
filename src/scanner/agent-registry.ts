@@ -191,6 +191,49 @@ const CLINE: AgentInfo = {
 	paths: dotfile('./.cline', '~/.cline'),
 };
 
+// Devin ships as a VS Code fork, so it carries three distinct roots: `~/.devin` holds the
+// editor-shell data (argv.json, extensions), `~/.config/devin` holds the skills home, and the
+// platform app-data tree holds userData — `User/settings.json`, the `mcp/` config, and the
+// Devin CLI's own `cli/` session store.
+const DEVIN: AgentInfo = {
+	displayName: 'Devin',
+	knownFiles: ['argv.json', 'mcp.json', 'settings.json'],
+	name: 'devin',
+	paths: {
+		cwd: ['./.devin'],
+		darwin: ['~/.devin', '~/.config/devin', '~/Library/Application Support/devin'],
+		linux: ['~/.devin', '~/.config/devin'],
+		win32: ['~/.devin', '~/.config/devin', '%APPDATA%/devin'],
+	},
+};
+
+const DEVIN_NEXT: AgentInfo = {
+	displayName: 'Devin Next',
+	knownFiles: ['argv.json', 'settings.json'],
+	name: 'devin-next',
+	paths: {
+		cwd: ['./.devin-next'],
+		darwin: ['~/.devin-next', '~/Library/Application Support/Devin - Next'],
+		linux: ['~/.devin-next', '~/.config/Devin - Next'],
+		win32: ['~/.devin-next', '%APPDATA%/Devin - Next'],
+	},
+};
+
+// T3 Code splits its footprint in two: `~/.t3` is the server/runtime home on every
+// platform (provider settings, caches, live-listener record), while the Electron
+// desktop shell keeps its own userData tree under the platform app-data directory.
+const T3_CODE: AgentInfo = {
+	displayName: 'T3 Code',
+	knownFiles: ['t3.json', 'settings.json', 'server-runtime.json'],
+	name: 't3code',
+	paths: {
+		cwd: ['./t3.json'],
+		darwin: ['~/.t3', '~/Library/Application Support/t3code'],
+		linux: ['~/.t3', '~/.config/t3code'],
+		win32: ['~/.t3', '%APPDATA%/t3code'],
+	},
+};
+
 const PI: AgentInfo = {
 	displayName: 'Pi',
 	knownFiles: ['config.json'],
@@ -250,6 +293,9 @@ const AGENTS: readonly AgentInfo[] = [
 	ZCODE,
 	AGENTS_HOME,
 	CLINE,
+	DEVIN,
+	DEVIN_NEXT,
+	T3_CODE,
 	PI,
 	MCP,
 	SKILLS,
