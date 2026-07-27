@@ -27,7 +27,7 @@ export const CRITICAL_CORRELATION_RULE_ID = 'agent.critical-signal-combination';
  * catalog entries are separated by hundreds. 50 clears the former with margin
  * while never bridging the latter.
  */
-export const MAX_CORRELATION_LINE_GAP = 50;
+const MAX_CORRELATION_LINE_GAP = 50;
 
 /**
  * Basenames of plugin *registry* files — catalogs that enumerate many
