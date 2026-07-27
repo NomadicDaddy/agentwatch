@@ -1,0 +1,8 @@
+{
+	"mcpServers": {
+		"local-stdio": {
+			"command": "/usr/local/bin/agent-tool@1.2.3",
+			"args": ["--stdio"]
+		}
+	}
+}

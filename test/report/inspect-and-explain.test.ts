@@ -8,13 +8,28 @@ interface CliResult {
 	readonly stdout: string;
 }
 
+interface JsonFinding {
+	readonly ruleId: string;
+	readonly severity: string;
+	readonly signals: readonly string[];
+}
+
 interface JsonFindingGroup {
-	readonly findings: readonly { readonly ruleId: string }[];
+	readonly findings: readonly JsonFinding[];
 }
 
 const PROJECT_ROOT = resolve(import.meta.dir, '..', '..');
 const CLI_ENTRY = resolve(PROJECT_ROOT, 'src', 'cli.ts');
 const MCP_FIXTURE = resolve(PROJECT_ROOT, 'test', 'fixtures', 'bad-actor', '.mcp.json');
+const BENIGN_MCP_FIXTURE = resolve(PROJECT_ROOT, 'test', 'fixtures', 'focused', 'benign-mcp.json');
+const DISJOINT_FIXTURE = resolve(
+	PROJECT_ROOT,
+	'test',
+	'fixtures',
+	'focused',
+	'disjoint-clusters.json'
+);
+const CRITICAL_CORRELATION_RULE_ID = 'agent.critical-signal-combination';
 const MCP_RULE_IDS: readonly string[] = [
 	'agent.dynamic-tool-registry',
 	'agent.local-execution-bridge',
@@ -37,22 +52,32 @@ function runCli(args: readonly string[]): CliResult {
 }
 
 describe('focused inspection and explanations', () => {
-	test('inspect-mcp and explain cover the same registered MCP rules', () => {
+	test('inspect-mcp correlates signals and explain covers the same registered MCP rules', () => {
 		const result = runCli(['inspect-mcp', MCP_FIXTURE, '--json']);
 		const report = JSON.parse(result.stdout) as {
 			readonly findings: readonly JsonFindingGroup[];
 		};
-		const ruleIds = [
-			...new Set(
-				report.findings.flatMap((group) => group.findings.map((finding) => finding.ruleId))
-			),
-		].sort();
+		const allFindings = report.findings.flatMap((group) => group.findings);
+		const ruleIds = [...new Set(allFindings.map((finding) => finding.ruleId))].sort();
+		const critical = allFindings.filter(
+			(finding) => finding.ruleId === CRITICAL_CORRELATION_RULE_ID
+		);
 
-		expect(result.exitCode).toBe(0);
+		// The bad-actor fixture unions remote-endpoint + dynamic-registry +
+		// local-execution within one artifact, so focused inspection must
+		// synthesize the critical correlation (parity with `scan`) and exit 1.
+		expect(result.exitCode).toBe(1);
 		expect(result.stderr).toBe('');
-		expect(ruleIds).toEqual([...MCP_RULE_IDS]);
+		expect(critical).toHaveLength(1);
+		expect(critical[0]?.severity).toBe('critical');
+		expect(critical[0]?.signals).toEqual(
+			expect.arrayContaining(['dynamic-registry', 'local-execution', 'remote-endpoint'])
+		);
+		// The five focused rule ids remain present alongside the correlation.
+		const focusedRuleIds = ruleIds.filter((id) => id !== CRITICAL_CORRELATION_RULE_ID);
+		expect(focusedRuleIds).toEqual([...MCP_RULE_IDS]);
 
-		for (const ruleId of ruleIds) {
+		for (const ruleId of [...focusedRuleIds, CRITICAL_CORRELATION_RULE_ID]) {
 			const explanation = runCli(['explain', ruleId]);
 			expect(explanation.exitCode).toBe(0);
 			expect(explanation.stderr).toBe('');
@@ -90,17 +115,40 @@ describe('focused inspection and explanations', () => {
 	});
 
 	test('focused CLI commands return their documented boundary exit codes', () => {
-		const inspectSuccess = runCli(['inspect-mcp', MCP_FIXTURE, '--json']);
+		const inspectClean = runCli(['inspect-mcp', BENIGN_MCP_FIXTURE, '--json']);
+		const inspectCritical = runCli(['inspect-mcp', MCP_FIXTURE, '--json']);
 		const inspectReadError = runCli(['inspect-mcp', '__missing-mcp-config__.json']);
 		const explainSuccess = runCli(['explain', MCP_RULE_IDS[0] ?? '']);
 		const explainUnknown = runCli(['explain', 'agent.unknown-rule']);
 
-		expect(inspectSuccess.exitCode).toBe(0);
+		// Benign config: only a sub-medium info finding → exit 0.
+		expect(inspectClean.exitCode).toBe(0);
+		// Bad-actor config: correlated critical → exit 1 (≥ medium threshold).
+		expect(inspectCritical.exitCode).toBe(1);
 		expect(inspectReadError.exitCode).toBe(2);
 		expect(inspectReadError.stderr).toContain('inspect-mcp: cannot read');
 		expect(explainSuccess.exitCode).toBe(0);
 		expect(explainUnknown.exitCode).toBe(1);
 		expect(explainUnknown.stderr).toContain('explain: no explanation registered');
+	});
+
+	test('inspect-mcp does not combine signals from disjoint clusters in one file', () => {
+		// The disjoint fixture places a remote endpoint near the top and a
+		// dynamic-registry + local-execution cluster ~60 lines below. Each
+		// cluster is sub-critical on its own, and the proximity guard must keep
+		// them separate so no synthetic critical is synthesized.
+		const result = runCli(['inspect-mcp', DISJOINT_FIXTURE, '--json']);
+		const report = JSON.parse(result.stdout) as {
+			readonly findings: readonly JsonFindingGroup[];
+		};
+		const allFindings = report.findings.flatMap((group) => group.findings);
+		const critical = allFindings.filter(
+			(finding) => finding.ruleId === CRITICAL_CORRELATION_RULE_ID
+		);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stderr).toBe('');
+		expect(critical).toHaveLength(0);
 	});
 
 	test('global license option emits first- and third-party notices', () => {

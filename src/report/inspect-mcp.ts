@@ -23,6 +23,7 @@ import { localExecutionBridgeRule } from '../rules/execution-bridges.ts';
 import { remoteCapabilityRule } from '../rules/remote-capabilities.ts';
 import { remoteManifestRule } from '../rules/remote-manifest.ts';
 import { unpinnedExecutionBridgeRule } from '../rules/unpinned-execution-bridge.ts';
+import { correlateFindings } from '../scanner/finding-correlation.ts';
 import { PACKAGE_VERSION } from '../version.ts';
 import { formatHuman, type ScanInventory } from './human.ts';
 import { formatJson } from './json.ts';
@@ -92,7 +93,10 @@ export async function runInspectMcp(
 	for (const rule of MCP_RULES) {
 		collected.push(...(await rule.scan(ctx)));
 	}
-	const findings = sortFindings(collected);
+	// Same-source, same-artifact correlation as `scan`: focused inspection must
+	// not bypass the critical signal combinations the orchestrator synthesizes.
+	const correlated = correlateFindings(collected);
+	const findings = sortFindings(correlated);
 
 	const inventory: ScanInventory = {
 		artifactCounts: { custom: { 'mcp-config': 1 } },
