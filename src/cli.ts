@@ -124,8 +124,8 @@ function buildProgram(): Command {
 				if (headers === null) {
 					process.exit(2);
 				}
-				const timeoutMs = Number.parseInt(opts.timeout ?? '15000', 10);
-				if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+				const timeoutMs = parseTimeoutMs(opts.timeout ?? '15000');
+				if (timeoutMs === null) {
 					process.stderr.write(`error: invalid --timeout '${opts.timeout}'\n`);
 					process.exit(2);
 				}
@@ -150,6 +150,20 @@ function buildProgram(): Command {
 	program.showHelpAfterError('(run `agentwatch --help` for usage)');
 
 	return program;
+}
+
+/**
+ * Parse a `--timeout` value into a positive safe integer. Rejects non-integer
+ * strings (e.g. `10ms`, `1.5`, `abc`) so `Number.parseInt` cannot silently
+ * truncate them. Returns `null` for anything that is not a whole positive
+ * number within the safe-integer range.
+ */
+function parseTimeoutMs(raw: string): null | number {
+	const trimmed = raw.trim();
+	if (!/^[1-9][0-9]*$/.test(trimmed)) return null;
+	const value = Number(trimmed);
+	if (!Number.isSafeInteger(value) || value <= 0) return null;
+	return value;
 }
 
 function parseHeaderOption(values: readonly string[] | undefined): null | Record<string, string> {

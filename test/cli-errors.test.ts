@@ -33,7 +33,9 @@ describe('CLI validation error secret retention', () => {
 
 		expect(result.exitCode).toBe(2);
 		expect(result.stdout).toBe('');
-		expect(result.stderr).toBe('probe: URL must start with http:// or https://\n');
+		expect(result.stderr).toBe(
+			'probe: URL must be a valid http:// or https:// address with a hostname\n'
+		);
 		expect(result.stderr).not.toContain(invalidUrl);
 		expect(result.stderr).not.toContain(token);
 	});
@@ -49,5 +51,37 @@ describe('CLI validation error secret retention', () => {
 		expect(result.stderr).toBe("error: invalid --header (expected 'Key: value')\n");
 		expect(result.stderr).not.toContain(malformedHeader);
 		expect(result.stderr).not.toContain(malformedHeader.split(' ').at(-1) ?? malformedHeader);
+	});
+});
+
+describe('probe URL validation rejects malformed addresses at the argument boundary', () => {
+	test.each([
+		['bare http prefix with no hostname', 'http://'],
+		['bare https prefix with no hostname', 'https://'],
+		['non-http protocol', 'ftp://example.test/mcp'],
+		['schemeless string', 'example.test/mcp'],
+	])('rejects %s with invalid-argument exit code 2', (_label, malformedUrl) => {
+		const result = runCli(['probe', malformedUrl]);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.stdout).toBe('');
+		expect(result.stderr).toBe(
+			'probe: URL must be a valid http:// or https:// address with a hostname\n'
+		);
+	});
+});
+
+describe('probe --timeout strict integer validation', () => {
+	test.each([
+		['10ms', 'suffixed value should not be truncated'],
+		['1.5', 'decimal is not a whole number'],
+		['0', 'zero is not positive'],
+		['abc', 'non-numeric'],
+	])('rejects invalid timeout %s with exit code 2', (invalidTimeout, _reason) => {
+		const result = runCli(['probe', 'https://example.test/mcp', '--timeout', invalidTimeout]);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.stdout).toBe('');
+		expect(result.stderr).toBe(`error: invalid --timeout '${invalidTimeout}'\n`);
 	});
 });

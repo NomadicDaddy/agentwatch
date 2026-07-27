@@ -1,6 +1,6 @@
 import { describe, expect, spyOn, test } from 'bun:test';
 
-import { runProbe } from '../../src/report/probe.ts';
+import { isValidProbeUrl, runProbe } from '../../src/report/probe.ts';
 import { maskSecrets } from '../../src/util/mask.ts';
 
 const ERROR_SECRET = 'errorSecret123456';
@@ -283,6 +283,84 @@ describe('probe redirect safety', () => {
 		} finally {
 			await source.stop(true);
 			await destination.stop(true);
+		}
+	});
+});
+
+describe('probe URL validation', () => {
+	test.each([
+		['http with hostname', 'http://example.test/mcp', true],
+		['https with hostname', 'https://example.test/mcp', true],
+		['http with IP and port', 'http://127.0.0.1:8080/mcp', true],
+		['bare http prefix', 'http://', false],
+		['bare https prefix', 'https://', false],
+		['ftp protocol', 'ftp://example.test', false],
+		['schemeless', 'example.test/mcp', false],
+		['empty', '', false],
+	])('isValidProbeUrl(%s) returns %s', (_label, url, expected) => {
+		expect(isValidProbeUrl(url)).toBe(expected);
+	});
+});
+
+describe('probe exit code for partial and total failure', () => {
+	test('partial success with zero tools does not trigger all-stages-failed exit 1', async () => {
+		// initialize succeeds, prompts/list succeeds, but tools/list fails.
+		// The old predicate (errors > 0 && tools empty) would have exited 1
+		// even though a partial surface was discovered.
+		const responses: Response[] = [
+			jsonResponse({
+				capabilities: { prompts: {}, resources: {} },
+				protocolVersion: '2025-06-18',
+				serverInfo: { name: 'partial', version: '1.0.0' },
+			}),
+			new Response(null, { status: 204 }),
+			new Response(null, { status: 500, statusText: 'tools broken' }),
+			jsonResponse({ prompts: [{ name: 'prompt-a' }] }),
+			jsonResponse({ resources: [{ uri: 'res://x' }] }),
+		];
+
+		const originalFetch = globalThis.fetch;
+		Object.assign(globalThis, {
+			fetch: async (_input: Request | string | URL, _init?: RequestInit) => {
+				const response = responses.shift();
+				if (!response) throw new Error('Unexpected probe request');
+				return response;
+			},
+		});
+
+		try {
+			const { exitCode, output } = await captureStdout(() =>
+				runProbe('https://example.test/mcp', { json: false })
+			);
+			// initialize and notifications succeed; tools/list errored but
+			// prompts/list and resources/list succeeded — not all stages failed.
+			// The HTTP target is HTTPS so no non-https issue; exit falls through
+			// to severity-based code. No medium+ issues => exit 0.
+			expect(exitCode).toBe(0);
+			expect(output).toContain('[tools/list]');
+			expect(output).toContain('prompt-a');
+			expect(output).toContain('res://x');
+		} finally {
+			Object.assign(globalThis, { fetch: originalFetch });
+		}
+	});
+
+	test('genuine all-stages failure returns exit 1 regardless of issues', async () => {
+		// initialize fails — that is the only stage attempted, and it errored.
+		const originalFetch = globalThis.fetch;
+		Object.assign(globalThis, {
+			fetch: async (_input: Request | string | URL, _init?: RequestInit) => {
+				return new Response(null, { status: 503, statusText: 'unavailable' });
+			},
+		});
+
+		try {
+			const { exitCode } = await captureStdout(() =>
+				runProbe('https://example.test/mcp', { json: false })
+			);
+			expect(exitCode).toBe(1);
+		} finally {
+			Object.assign(globalThis, { fetch: originalFetch });
 		}
 	});
 });
