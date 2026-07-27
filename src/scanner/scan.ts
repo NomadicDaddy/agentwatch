@@ -27,6 +27,7 @@ import { remoteMcpGatewayRule } from '../rules/remote-mcp-gateway.ts';
 import { triggerBasedInvocationRule } from '../rules/trigger-based-invocation.ts';
 import { unpinnedExecutionBridgeRule } from '../rules/unpinned-execution-bridge.ts';
 import { untrustedInstallSourceRule } from '../rules/untrusted-install-source.ts';
+import { maskSecrets } from '../util/mask.ts';
 import { PACKAGE_VERSION } from '../version.ts';
 import { getSupportedAgentNames, isSupportedAgent } from './agent-registry.ts';
 import { readArtifacts } from './artifact-reader.ts';
@@ -102,12 +103,12 @@ export async function runScan(options: RunScanOptions): Promise<number> {
 		...(options.customPaths !== undefined ? { customPaths: options.customPaths } : {}),
 	});
 	progress(`Discovered ${sources.length} source${sources.length === 1 ? '' : 's'}.`);
-	for (const source of sources) progress(`  · ${source.agent}: ${source.root}`);
+	for (const source of sources) progress(`  · ${source.agent}: ${maskSecrets(source.root)}`);
 
 	progress('Reading artifacts…');
 	const artifacts = await readArtifacts(sources, {
 		onSource: (source, count) =>
-			progress(`  · ${source.agent}: ${count} files (${source.root})`),
+			progress(`  · ${source.agent}: ${count} files (${maskSecrets(source.root)})`),
 	});
 	progress(`Read ${artifacts.length} artifact${artifacts.length === 1 ? '' : 's'}.`);
 

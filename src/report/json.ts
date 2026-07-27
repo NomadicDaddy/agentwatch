@@ -108,7 +108,7 @@ function buildInventory(inventory: ScanInventory): JsonInventory {
 			agent: source.agent,
 			artifactCounts: counts,
 			customPath: source.customPath === true,
-			root: source.root,
+			root: maskSecrets(source.root),
 		};
 	});
 	return {
@@ -129,10 +129,10 @@ function toJsonFinding(finding: Finding): JsonFinding {
 		source: {
 			agent: finding.source.agent,
 			customPath: finding.source.customPath === true,
-			root: finding.source.root,
+			root: maskSecrets(finding.source.root),
 		},
 		title: finding.title,
-		...(finding.file !== undefined ? { file: finding.file } : {}),
+		...(finding.file !== undefined ? { file: maskSecrets(finding.file) } : {}),
 		...(finding.line !== undefined ? { line: finding.line } : {}),
 		...(finding.evidence !== undefined && finding.evidence.length > 0
 			? { evidence: maskSecrets(finding.evidence) }

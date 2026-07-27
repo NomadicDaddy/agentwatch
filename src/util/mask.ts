@@ -57,8 +57,8 @@ const KEYED_SECRET_REGEX =
 /** Email address — keeps first char of local-part and full domain. */
 const EMAIL_REGEX = /\b([A-Za-z0-9])[A-Za-z0-9._%+-]{1,}(@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
 
-/** Sensitive directories — replace everything after the marker segment with a mask. */
-const SENSITIVE_DIR_REGEX = /(\.(?:ssh|aws|gnupg|kube|docker)\/)([^\s"'`,;)]+)/gi;
+/** Sensitive directories — replace everything after the marker segment with a mask. Accepts both forward and back slash separators so Windows paths are masked too. */
+const SENSITIVE_DIR_REGEX = /(\.(?:ssh|aws|gnupg|kube|docker)[\\/])([^\s"'`,;)]+)/gi;
 
 /** `.env`, `.env.production`, etc. filenames — mask the suffix after `.env`. */
 const ENV_FILE_REGEX = /(\.env)(\.[A-Za-z0-9_.-]+)?\b/g;

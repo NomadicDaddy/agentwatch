@@ -7,9 +7,10 @@
  */
 
 import { afterAll, beforeAll, describe, expect, spyOn, test } from 'bun:test';
+import { spawnSync } from 'node:child_process';
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import type { Finding } from '../../src/rules/types.ts';
 
@@ -166,5 +167,38 @@ describe('agent surface scoring with fixture data', () => {
 
 		const cred = findings.find((f) => f.ruleId === 'agent.connector-credential-reachability');
 		expect(cred?.score).toBe(20);
+	});
+});
+
+describe('scan progress masks sensitive source roots', () => {
+	let sensitiveRoot: string;
+
+	beforeAll(async () => {
+		sensitiveRoot = join(fixtureRoot, '.ssh', 'agent-config');
+		await mkdir(sensitiveRoot, { recursive: true });
+		await writeFile(join(sensitiveRoot, '.mcp.json'), '{}');
+	});
+
+	test('human-mode progress messages mask .ssh source root tails', () => {
+		const projectRoot = resolve(import.meta.dir, '..', '..');
+		const cliEntry = resolve(projectRoot, 'src', 'cli.ts');
+		const result = spawnSync(
+			'bun',
+			[cliEntry, 'scan', '--path', sensitiveRoot, '--agent', 'custom'],
+			{
+				cwd: projectRoot,
+				encoding: 'utf8',
+			}
+		);
+		if (result.error) throw result.error;
+
+		const stderr = result.stderr ?? '';
+
+		// The full sensitive path tail must not appear verbatim in progress.
+		expect(stderr).not.toContain('agent-config');
+
+		// The `.ssh` marker segment survives (useful forensic context). On
+		// Windows the separator is a backslash, on POSIX a forward slash.
+		expect(stderr.toLowerCase()).toMatch(/\.ssh[\\/]/);
 	});
 });

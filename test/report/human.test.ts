@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import type { Finding } from '../../src/rules/types.ts';
 
 import { formatHuman, type ScanInventory } from '../../src/report/human.ts';
+import { formatJson } from '../../src/report/json.ts';
 import { makeSource } from '../helpers.ts';
 
 interface CliResult {
@@ -141,5 +142,122 @@ describe('human report credential masking', () => {
 				expect(output).toContain(masked);
 			}
 		}
+	});
+});
+
+/**
+ * Sensitive-path masking regressions.
+ *
+ * A synthetic agent source whose root is a `.ssh` path, and a finding whose
+ * file path references a `.aws` credential file, must both be masked in the
+ * human and JSON reporter output — not just in evidence strings. Similarly, a
+ * source root at an `.env` path must be masked. Non-sensitive path segments
+ * (agent names, type names, the `.ssh`/`.aws` markers themselves) must remain
+ * so the report stays forensically useful.
+ */
+const SENSITIVE_PATH_SOURCE = makeSource({
+	agent: 'claude',
+	customPath: true,
+	root: '/home/alice/.ssh/config',
+});
+
+const SENSITIVE_PATH_INVENTORY: ScanInventory = {
+	artifactCounts: { claude: { 'mcp-config': 1 } },
+	sources: [SENSITIVE_PATH_SOURCE],
+	totalArtifacts: 1,
+};
+
+const SENSITIVE_PATH_FINDING: Finding = {
+	confidence: 'high',
+	evidence: 'token: secretvaluehere',
+	file: '/home/alice/.aws/credentials',
+	group: 'credential-reachability',
+	id: 'finding-sensitive-path',
+	line: 42,
+	recommendation: 'Rotate the credential.',
+	ruleId: 'agent.credential-file-reference',
+	score: 20,
+	severity: 'info',
+	signals: ['credential-reach'],
+	source: SENSITIVE_PATH_SOURCE,
+	title: 'Sensitive file reference',
+};
+
+const ENV_PATH_SOURCE = makeSource({
+	agent: 'custom',
+	customPath: true,
+	root: '/home/alice/.env.production',
+});
+
+const ENV_PATH_INVENTORY: ScanInventory = {
+	artifactCounts: { custom: { 'connector-config': 1 } },
+	sources: [ENV_PATH_SOURCE],
+	totalArtifacts: 1,
+};
+
+describe('sensitive path masking in reporter output', () => {
+	test('human report masks source roots and finding file paths, keeps useful context', () => {
+		const report = formatHuman([SENSITIVE_PATH_FINDING], SENSITIVE_PATH_INVENTORY, {
+			scannedAt: '2026-07-23T00:00:00.000Z',
+			showAll: true,
+			version: '0.1.0',
+		});
+
+		// Sensitive tails must be absent.
+		expect(report).not.toContain('/home/alice/.ssh/config');
+		expect(report).not.toContain('/home/alice/.aws/credentials');
+		// The `.ssh` marker and `.aws` marker stay (useful context), but the
+		// tail segments are masked.
+		expect(report).toContain('.ssh/');
+		expect(report).toContain('.aws/');
+		// Agent name and artifact type label remain.
+		expect(report).toContain('claude');
+	});
+
+	test('human report masks .env source roots', () => {
+		const report = formatHuman([], ENV_PATH_INVENTORY, {
+			scannedAt: '2026-07-23T00:00:00.000Z',
+			showAll: true,
+			version: '0.1.0',
+		});
+
+		expect(report).not.toContain('/home/alice/.env.production');
+		expect(report).toContain('.env');
+	});
+
+	test('JSON report masks source roots and finding file paths, keeps useful context', () => {
+		const json = formatJson([SENSITIVE_PATH_FINDING], SENSITIVE_PATH_INVENTORY, {
+			scannedAt: '2026-07-23T00:00:00.000Z',
+			version: '0.1.0',
+		});
+
+		// Must be valid JSON.
+		const payload = JSON.parse(json);
+
+		// Sensitive tails must be absent from the raw string.
+		expect(json).not.toContain('/home/alice/.ssh/config');
+		expect(json).not.toContain('/home/alice/.aws/credentials');
+
+		// The `.ssh` and `.aws` markers survive for forensic usefulness.
+		expect(json).toContain('.ssh/');
+		expect(json).toContain('.aws/');
+
+		// Inventory root masked.
+		const inventoryRoot = payload.inventory.agents[0].root;
+		expect(inventoryRoot).not.toBe('/home/alice/.ssh/config');
+		expect(inventoryRoot).toContain('.ssh/');
+
+		// Finding source root masked — find the group that contains the finding.
+		const credGroup = payload.findings.find(
+			(g: { group: string }) => g.group === 'credential-reachability'
+		);
+		const findingRoot = credGroup.findings[0].source.root;
+		expect(findingRoot).not.toBe('/home/alice/.ssh/config');
+		expect(findingRoot).toContain('.ssh/');
+
+		// Finding file path masked.
+		const findingFile = credGroup.findings[0].file;
+		expect(findingFile).not.toBe('/home/alice/.aws/credentials');
+		expect(findingFile).toContain('.aws/');
 	});
 });

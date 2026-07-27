@@ -134,7 +134,7 @@ function renderInventory(inventory: ScanInventory, lines: string[]): void {
 
 	for (const source of inventory.sources) {
 		const tag = source.customPath ? ' [custom]' : '';
-		lines.push(`  - ${source.agent}${tag}: ${source.root}`);
+		lines.push(`  - ${source.agent}${tag}: ${maskSecrets(source.root)}`);
 	}
 
 	lines.push('');
@@ -170,9 +170,9 @@ function renderSummary(findings: readonly Finding[], lines: string[]): void {
 }
 
 function renderLocation(finding: Finding): string {
-	if (finding.file === undefined) return finding.source.root;
-	if (finding.line === undefined) return finding.file;
-	return `${finding.file}:${finding.line}`;
+	if (finding.file === undefined) return maskSecrets(finding.source.root);
+	if (finding.line === undefined) return maskSecrets(finding.file);
+	return `${maskSecrets(finding.file)}:${finding.line}`;
 }
 
 function renderFinding(finding: Finding, lines: string[]): void {
