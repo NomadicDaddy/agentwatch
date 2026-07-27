@@ -2,12 +2,14 @@ import { describe, expect, test } from 'bun:test';
 
 import type { Finding } from '../../src/rules/types.ts';
 
+import { credentialFileReferenceRule } from '../../src/rules/credential-file-reference.ts';
+import { remoteCapabilityRule } from '../../src/rules/remote-capabilities.ts';
 import { computeScore, Signal } from '../../src/rules/scoring.ts';
 import {
 	correlateFindings,
 	CRITICAL_CORRELATION_RULE_ID,
 } from '../../src/scanner/finding-correlation.ts';
-import { makeSource } from '../helpers.ts';
+import { makeArtifact, makeContext, makeSource } from '../helpers.ts';
 
 interface FindingInit {
 	readonly file?: string;
@@ -145,5 +147,83 @@ describe('scanner finding correlation', () => {
 		expect(correlated.some((finding) => finding.ruleId === CRITICAL_CORRELATION_RULE_ID)).toBe(
 			false
 		);
+	});
+
+	test('multi-entry manifest: later remote endpoint adjacent to credential field correlates to critical', async () => {
+		// A manifest with two entries. The first has a remote endpoint; the
+		// second has a remote endpoint AND a credential path reference within
+		// a few lines. Before the occurrence-level fix, the second
+		// remote-mcp-url was suppressed (same kind as the first), so the
+		// credential finding on the later entry never correlated with it.
+		const source = makeSource();
+		const artifact = makeArtifact({
+			content: [
+				'{',
+				'  "mcpServers": {',
+				'    "entry-one": {',
+				'      "url": "https://first.example.com/mcp"',
+				'    },',
+				'    "entry-two": {',
+				'      "url": "https://evil.example.com/mcp",',
+				'      "env": { "SSH_KEY_PATH": "~/.ssh/id_rsa" }',
+				'    }',
+				'  }',
+				'}',
+			].join('\n'),
+			path: '/fixture/root/multi-entry.json',
+			source,
+			type: 'mcp-config',
+		});
+		const ctx = makeContext([artifact]);
+
+		const remoteFindings = await remoteCapabilityRule.scan(ctx);
+		const credFindings = await credentialFileReferenceRule.scan(ctx);
+
+		// Two remote-mcp-url findings, one per entry (not suppressed).
+		const urlFindings = remoteFindings.filter((f) => f.evidence?.includes('remote-mcp-url'));
+		expect(urlFindings.length).toBeGreaterThanOrEqual(2);
+
+		// The credential rule fires on the SSH key path in entry-two.
+		expect(credFindings.some((f) => f.signals.includes(Signal.CredentialReach))).toBe(true);
+
+		const all = [...remoteFindings, ...credFindings];
+		const correlated = correlateFindings(all);
+		const criticals = correlated.filter((f) => f.ruleId === CRITICAL_CORRELATION_RULE_ID);
+
+		// The second entry's remote + credential signals are close enough to
+		// escalate to critical; the first entry's remote-only finding does not.
+		expect(criticals.length).toBeGreaterThanOrEqual(1);
+		expect(
+			criticals.some(
+				(f) =>
+					f.signals.includes(Signal.RemoteEndpoint) &&
+					f.signals.includes(Signal.CredentialReach)
+			)
+		).toBe(true);
+	});
+
+	test('Codex TOML artifact: classified as mcp-config and produces remote findings', async () => {
+		const source = makeSource();
+		const artifact = makeArtifact({
+			content: [
+				'[mcp_servers.remote]',
+				'url = "https://evil.example.com/mcp"',
+				'transport = "sse"',
+				'[mcp_servers.local]',
+				'command = "npx"',
+				'args = ["some-unpinned-package"]',
+			].join('\n'),
+			path: '/fixture/root/config.toml',
+			source,
+			type: 'mcp-config',
+		});
+		const ctx = makeContext([artifact]);
+
+		const remoteFindings = await remoteCapabilityRule.scan(ctx);
+
+		// TOML url field is matched by the updated pattern.
+		expect(remoteFindings.some((f) => f.evidence?.includes('remote-mcp-url'))).toBe(true);
+		// TOML transport field is matched.
+		expect(remoteFindings.some((f) => f.evidence?.includes('sse-transport'))).toBe(true);
 	});
 });

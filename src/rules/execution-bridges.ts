@@ -39,47 +39,50 @@ interface PatternSpec {
 const PATTERNS: readonly PatternSpec[] = [
 	{
 		kind: 'npx-command',
-		pattern: /"command"\s*:\s*"(?:[^"]*[\\/])?npx(?:\.(?:cmd|exe))?"/i,
+		pattern: /["']?command["']?\s*[:=]\s*["'](?:[^"']*[\\/])?npx(?:\.(?:cmd|exe))?["']/i,
 		title: 'MCP/tool command launches via npx',
 	},
 	{
 		kind: 'bunx-command',
-		pattern: /"command"\s*:\s*"(?:[^"]*[\\/])?bunx(?:\.(?:cmd|exe))?"/i,
+		pattern: /["']?command["']?\s*[:=]\s*["'](?:[^"']*[\\/])?bunx(?:\.(?:cmd|exe))?["']/i,
 		title: 'MCP/tool command launches via bunx',
 	},
 	{
 		kind: 'uvx-command',
-		pattern: /"command"\s*:\s*"(?:[^"]*[\\/])?uvx(?:\.(?:cmd|exe))?"/i,
+		pattern: /["']?command["']?\s*[:=]\s*["'](?:[^"']*[\\/])?uvx(?:\.(?:cmd|exe))?["']/i,
 		title: 'MCP/tool command launches via uvx',
 	},
 	{
 		kind: 'node-command',
-		pattern: /"command"\s*:\s*"(?:[^"]*[\\/])?node(?:\.exe)?"/i,
+		pattern: /["']?command["']?\s*[:=]\s*["'](?:[^"']*[\\/])?node(?:\.exe)?["']/i,
 		title: 'MCP/tool command launches a node interpreter',
 	},
 	{
 		kind: 'python-command',
-		pattern: /"command"\s*:\s*"(?:[^"]*[\\/])?python(?:3(?:\.\d+)?)?(?:\.exe)?"/i,
+		pattern:
+			/["']?command["']?\s*[:=]\s*["'](?:[^"']*[\\/])?python(?:3(?:\.\d+)?)?(?:\.exe)?["']/i,
 		title: 'MCP/tool command launches a python interpreter',
 	},
 	{
 		kind: 'powershell-command',
-		pattern: /"command"\s*:\s*"(?:[^"]*[\\/])?(?:pwsh|powershell)(?:\.exe)?"/i,
+		pattern:
+			/["']?command["']?\s*[:=]\s*["'](?:[^"']*[\\/])?(?:pwsh|powershell)(?:\.exe)?["']/i,
 		title: 'MCP/tool command launches a PowerShell interpreter',
 	},
 	{
 		kind: 'shell-command',
-		pattern: /"command"\s*:\s*"(?:[^"]*[\\/])?(?:bash|sh|zsh|dash)(?:\.exe)?"/i,
+		pattern:
+			/["']?command["']?\s*[:=]\s*["'](?:[^"']*[\\/])?(?:bash|sh|zsh|dash)(?:\.exe)?["']/i,
 		title: 'MCP/tool command launches a POSIX shell',
 	},
 	{
 		kind: 'local-binary',
-		pattern: /"command"\s*:\s*"(?:[a-zA-Z]:[\\/]|\/|~[\\/]|\.{1,2}[\\/])[^"]+"/,
+		pattern: /["']?command["']?\s*[:=]\s*["'](?:[a-zA-Z]:[\\/]|\/|~[\\/]|\.{1,2}[\\/])[^"']+/,
 		title: 'MCP/tool command references a local binary path',
 	},
 	{
 		kind: 'stdio-server',
-		pattern: /"(?:type|transport)"\s*:\s*"stdio"/i,
+		pattern: /["']?(?:type|transport)["']?\s*[:=]\s*["']stdio["']/i,
 		title: 'MCP server declared with stdio transport',
 	},
 ];
@@ -101,16 +104,16 @@ interface Match {
 }
 
 function findMatches(content: string): Match[] {
-	const seen = new Set<BridgeKind>();
+	const seen = new Set<string>();
 	const matches: Match[] = [];
 	const lines = content.split(/\r?\n/);
 
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i] ?? '';
 		for (const spec of PATTERNS) {
-			if (seen.has(spec.kind)) continue;
+			if (seen.has(`${spec.kind}:${i + 1}`)) continue;
 			if (spec.pattern.test(line)) {
-				seen.add(spec.kind);
+				seen.add(`${spec.kind}:${i + 1}`);
 				matches.push({
 					evidence: line.trim().slice(0, 240),
 					kind: spec.kind,

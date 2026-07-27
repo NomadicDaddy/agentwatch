@@ -194,9 +194,57 @@ function findInlineMatches(content: string): Match[] {
 	return matches;
 }
 
+const TOML_COMMAND_PATTERN = /\bcommand\s*=\s*"([^"]+)"/i;
+const TOML_ARGS_PATTERN = /\bargs\s*=\s*\[([^\]]*)\]/i;
+
+/**
+ * TOML configs (e.g. Codex `config.toml`) put `command` and `args` on separate
+ * lines under an `[mcp_servers.<name>]` table. JSON parsing fails and inline
+ * matching sees only the command without the args. This matcher pairs a
+ * `command = "npx"` line with the nearest `args = [...]` line within the same
+ * TOML table block.
+ */
+function findTomlMatches(content: string): Match[] {
+	const matches: Match[] = [];
+	const lines = content.split(/\r?\n/);
+	const seen = new Set<string>();
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i] ?? '';
+		const cmdMatch = TOML_COMMAND_PATTERN.exec(line);
+		if (cmdMatch === null) continue;
+		const launcher = getLauncher(cmdMatch[1] ?? '');
+		if (launcher === null) continue;
+		// Search the next few lines for the args array within the same table.
+		for (let j = i; j < Math.min(i + 10, lines.length); j++) {
+			const candidate = lines[j] ?? '';
+			if (j > i && /^\[/.test(candidate.trim())) break; // next table starts
+			const argsMatch = TOML_ARGS_PATTERN.exec(candidate);
+			if (argsMatch === null) continue;
+			const rawArgs = argsMatch[1] ?? '';
+			const args = rawArgs.split(',').map((a) => a.trim().replace(/^["']|["']$/g, ''));
+			const target = findFirstPackageArg(args);
+			if (target === null) break;
+			if (isPinned(target)) break;
+			const key = `${launcher}::${target}::${j + 1}`;
+			if (seen.has(key)) break;
+			seen.add(key);
+			matches.push({
+				evidence: candidate.trim().slice(0, 240),
+				launcher,
+				line: j + 1,
+				target,
+			});
+			break;
+		}
+	}
+	return matches;
+}
+
 function findMatches(content: string): Match[] {
 	const json = findJsonMatches(content);
 	if (json.length > 0) return json;
+	const toml = findTomlMatches(content);
+	if (toml.length > 0) return toml;
 	return findInlineMatches(content);
 }
 

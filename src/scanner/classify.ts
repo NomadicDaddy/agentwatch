@@ -36,7 +36,9 @@ function hasSegment(dir: string, names: readonly string[]): boolean {
 }
 
 function looksLikeMcpConfig(content: string): boolean {
-	return /"mcpServers"\s*:/.test(content);
+	if (/"mcpServers"\s*:/.test(content)) return true;
+	// TOML: Codex uses `[mcp_servers.<name>]` tables with optional `[mcpServers]` bracket.
+	return /\[(?:mcp_servers|mcpServers)\b/.test(content);
 }
 
 function looksLikeToolManifest(content: string): boolean {
@@ -72,6 +74,7 @@ export function classifyArtifact(input: ClassifyInput): ArtifactType | null {
 	const ext = path.extname(filename);
 	const isMarkdown = ext === '.md';
 	const isJson = ext === '.json';
+	const isToml = ext === '.toml';
 
 	if (SKILL_FILES.has(filename)) return 'skill';
 	if (hasSegment(parent, ['skills', '.skills'])) return 'skill';
@@ -88,6 +91,10 @@ export function classifyArtifact(input: ClassifyInput): ArtifactType | null {
 		if (looksLikePermissionConfig(input.content)) return 'permission-config';
 		if (looksLikeMemoryConfig(input.content)) return 'memory-config';
 		if (looksLikeProvenance(input.content)) return 'provenance';
+	}
+
+	if (isToml) {
+		if (looksLikeMcpConfig(input.content)) return 'mcp-config';
 	}
 
 	return null;

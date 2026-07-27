@@ -41,25 +41,26 @@ interface PatternSpec {
 const PATTERNS: readonly PatternSpec[] = [
 	{
 		kind: 'remote-mcp-url',
-		pattern: /"url"\s*:\s*"https?:\/\/[^"]+"/i,
+		pattern: /["']?url["']?\s*[:=]\s*"https?:\/\/[^"]+"/i,
 		signal: Signal.RemoteEndpoint,
 		title: 'Remote MCP endpoint declared',
 	},
 	{
 		kind: 'sse-transport',
-		pattern: /"(?:transport|type)"\s*:\s*"(?:sse|http|streamable[-_]?http)"/i,
+		pattern: /["']?(?:transport|type)["']?\s*[:=]\s*["'](?:sse|http|streamable[-_]?http)["']/i,
 		signal: Signal.RemoteEndpoint,
 		title: 'Remote MCP transport (SSE/HTTP) declared',
 	},
 	{
 		kind: 'http-transport',
-		pattern: /"endpoint"\s*:\s*"https?:\/\/[^"]+"/i,
+		pattern: /["']?endpoint["']?\s*[:=]\s*"https?:\/\/[^"]+"/i,
 		signal: Signal.RemoteEndpoint,
 		title: 'Remote tool endpoint declared',
 	},
 	{
 		kind: 'remote-tool-api',
-		pattern: /"(?:api[_-]?url|baseUrl|base_url|server[_-]?url)"\s*:\s*"https?:\/\/[^"]+"/i,
+		pattern:
+			/["']?(?:api[_-]?url|baseUrl|base_url|server[_-]?url)["']?\s*[:=]\s*"https?:\/\/[^"]+"/i,
 		signal: Signal.RemoteEndpoint,
 		title: 'Remote tool API base URL declared',
 	},
@@ -115,16 +116,16 @@ interface Match {
 }
 
 function findMatches(content: string): Match[] {
-	const seen = new Set<RemoteKind>();
+	const seen = new Set<string>();
 	const matches: Match[] = [];
 	const lines = content.split(/\r?\n/);
 
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i] ?? '';
 		for (const spec of PATTERNS) {
-			if (seen.has(spec.kind)) continue;
+			if (seen.has(`${spec.kind}:${i + 1}`)) continue;
 			if (spec.pattern.test(line)) {
-				seen.add(spec.kind);
+				seen.add(`${spec.kind}:${i + 1}`);
 				matches.push({
 					evidence: line.trim().slice(0, 240),
 					kind: spec.kind,

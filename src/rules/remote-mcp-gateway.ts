@@ -102,7 +102,7 @@ const PATTERNS: readonly PatternSpec[] = [
 ];
 
 const REMOTE_ENDPOINT_PATTERN =
-	/"(?:url|endpoint|api[_-]?url|baseUrl|base_url|server[_-]?url)"\s*:\s*"https?:\/\/[^"]+"|"(?:transport|type)"\s*:\s*"(?:sse|http|streamable[-_]?http)"/i;
+	/["']?(?:url|endpoint|api[_-]?url|baseUrl|base_url|server[_-]?url)["']?\s*[:=]\s*"https?:\/\/[^"]+"|["']?(?:transport|type)["']?\s*[:=]\s*["'](?:sse|http|streamable[-_]?http)["']/i;
 
 const RECOMMENDATION =
 	'Prefer single-purpose tools with named, narrow scope. A generic gateway, ' +
@@ -123,16 +123,16 @@ interface Match {
 }
 
 function findMatches(content: string): Match[] {
-	const seen = new Set<GatewayKind>();
+	const seen = new Set<string>();
 	const matches: Match[] = [];
 	const lines = content.split(/\r?\n/);
 
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i] ?? '';
 		for (const spec of PATTERNS) {
-			if (seen.has(spec.kind)) continue;
+			if (seen.has(`${spec.kind}:${i + 1}`)) continue;
 			if (spec.pattern.test(line)) {
-				seen.add(spec.kind);
+				seen.add(`${spec.kind}:${i + 1}`);
 				matches.push({
 					evidence: line.trim().slice(0, 240),
 					kind: spec.kind,

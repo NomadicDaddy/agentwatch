@@ -37,27 +37,27 @@ interface PatternSpec {
 const PATTERNS: readonly PatternSpec[] = [
 	{
 		kind: 'manifest-url',
-		pattern: /"manifest(?:[_-]?url)?"\s*:\s*"https?:\/\/[^"]+"/i,
+		pattern: /["']?manifest(?:[_-]?url)?["']?\s*[:=]\s*"https?:\/\/[^"]+"/i,
 		title: 'Remote manifest URL declared',
 	},
 	{
 		kind: 'update-url',
-		pattern: /"update[_-]?url"\s*:\s*"https?:\/\/[^"]+"/i,
+		pattern: /["']?update[_-]?url["']?\s*[:=]\s*"https?:\/\/[^"]+"/i,
 		title: 'Remote update URL declared',
 	},
 	{
 		kind: 'config-url',
-		pattern: /"config[_-]?url"\s*:\s*"https?:\/\/[^"]+"/i,
+		pattern: /["']?config[_-]?url["']?\s*[:=]\s*"https?:\/\/[^"]+"/i,
 		title: 'Remote config URL declared',
 	},
 	{
 		kind: 'plugins-url',
-		pattern: /"plugins?[_-]?(?:url|manifest)"\s*:\s*"https?:\/\/[^"]+"/i,
+		pattern: /["']?plugins?[_-]?(?:url|manifest)["']?\s*[:=]\s*"https?:\/\/[^"]+"/i,
 		title: 'Remote plugins manifest URL declared',
 	},
 	{
 		kind: 'tools-url',
-		pattern: /"tools?[_-]?(?:url|manifest|list)"\s*:\s*"https?:\/\/[^"]+"/i,
+		pattern: /["']?tools?[_-]?(?:url|manifest|list)["']?\s*[:=]\s*"https?:\/\/[^"]+"/i,
 		title: 'Remote tools manifest URL declared',
 	},
 	{
@@ -91,16 +91,16 @@ interface Match {
 }
 
 function findMatches(content: string): Match[] {
-	const seen = new Set<ManifestKind>();
+	const seen = new Set<string>();
 	const matches: Match[] = [];
 	const lines = content.split(/\r?\n/);
 
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i] ?? '';
 		for (const spec of PATTERNS) {
-			if (seen.has(spec.kind)) continue;
+			if (seen.has(`${spec.kind}:${i + 1}`)) continue;
 			if (spec.pattern.test(line)) {
-				seen.add(spec.kind);
+				seen.add(`${spec.kind}:${i + 1}`);
 				matches.push({
 					evidence: line.trim().slice(0, 240),
 					kind: spec.kind,

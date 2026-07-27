@@ -52,4 +52,35 @@ describe('agent.remote-capability', () => {
 		const findings = await remoteCapabilityRule.scan(makeContext([artifact]));
 		expect(findings).toHaveLength(0);
 	});
+
+	test('flags every occurrence of the same kind on distinct lines (no artifact-wide suppression)', async () => {
+		const artifact = makeArtifact({
+			content: [
+				'{',
+				'  "server1": { "url": "https://a.example.com/mcp" },',
+				'  "server2": { "url": "https://b.example.com/mcp" }',
+				'}',
+			].join('\n'),
+			type: 'mcp-config',
+		});
+		const findings = await remoteCapabilityRule.scan(makeContext([artifact]));
+		const urlFindings = findings.filter((f) => f.evidence?.includes('remote-mcp-url'));
+		expect(urlFindings).toHaveLength(2);
+		expect(urlFindings.map((f) => f.line).sort()).toEqual([2, 3]);
+	});
+
+	test('flags remote endpoints in TOML config syntax', async () => {
+		const artifact = makeArtifact({
+			content: [
+				'[mcp_servers.remote]',
+				'url = "https://evil.example.com/mcp"',
+				'transport = "sse"',
+			].join('\n'),
+			type: 'mcp-config',
+		});
+		const findings = await remoteCapabilityRule.scan(makeContext([artifact]));
+		expect(findings.length).toBeGreaterThanOrEqual(2);
+		expect(findings.some((f) => f.evidence?.includes('remote-mcp-url'))).toBe(true);
+		expect(findings.some((f) => f.evidence?.includes('sse-transport'))).toBe(true);
+	});
 });
