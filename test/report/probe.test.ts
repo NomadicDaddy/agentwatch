@@ -365,6 +365,52 @@ describe('probe exit code for partial and total failure', () => {
 	});
 });
 
+describe('probe deep masking of object keys and non-string values', () => {
+	const KEY_TOKEN_SECRET = 'keyBearerSecret123';
+	const NUMERIC_TOKEN_SECRET = '9876543210';
+
+	/**
+	 * Schema-valid initialize response that hides a bearer token inside an
+	 * object KEY (a capability sub-field) and a numeric value beneath a
+	 * sensitive field name. Before the fix, maskProbeRecord preserved the
+	 * raw key verbatim and maskProbeValue returned numbers unchanged.
+	 */
+	function deepMaskResponses(): Response[] {
+		return [
+			jsonResponse({
+				capabilities: {
+					// Token smuggled into the key name itself.
+					[`Bearer ${KEY_TOKEN_SECRET}`]: 'nested',
+					prompts: {},
+					resources: {},
+					// Numeric value beneath a sensitive field name.
+					token: NUMERIC_TOKEN_SECRET,
+				},
+				protocolVersion: '2025-06-18',
+				serverInfo: { name: 'deep-mask-test', version: '1.0.0' },
+			}),
+			new Response(null, { status: 204 }),
+			jsonResponse({ tools: [] }),
+			jsonResponse({ prompts: [] }),
+			jsonResponse({ resources: [] }),
+		];
+	}
+
+	test('masks auth token reflected in a capability object key', async () => {
+		for (const json of [false, true]) {
+			const output = await captureProbeOutput(json, deepMaskResponses());
+			expect(output).not.toContain(KEY_TOKEN_SECRET);
+		}
+	});
+
+	test('replaces numeric value beneath a sensitive field name', async () => {
+		for (const json of [false, true]) {
+			const output = await captureProbeOutput(json, deepMaskResponses());
+			expect(output).not.toContain(NUMERIC_TOKEN_SECRET);
+		}
+	});
+});
+
 describe('probe response body bounds (time and size)', () => {
 	/**
 	 * Build a ReadableStream that never produces a chunk and never closes on

@@ -175,15 +175,31 @@ function maskProbeResult(result: ProbeResult): ProbeResult {
 	};
 }
 
+/**
+ * Marker emitted when a non-string primitive value is replaced because it
+ * sits beneath a sensitive field name (e.g. `{ token: 1234567890 }`). The
+ * raw number/boolean cannot be passed through `maskSecrets` (which operates
+ * on strings), so it is replaced wholesale with this opaque sentinel.
+ */
+const REDACTED_NON_STRING = '[redacted]';
+
 function maskProbeRecord(
 	value: Readonly<Record<string, unknown>>,
 	inheritedSensitive: boolean = false
 ): Readonly<Record<string, unknown>> {
 	return Object.fromEntries(
-		Object.entries(value).map(([key, entry]) => [
-			key,
-			maskProbeValue(entry, inheritedSensitive || SENSITIVE_FIELD_NAME.test(key)),
-		])
+		Object.entries(value).map(([key, entry]) => {
+			const maskedKey = maskSecrets(key);
+			return [
+				maskedKey,
+				maskProbeValue(
+					entry,
+					inheritedSensitive ||
+						SENSITIVE_FIELD_NAME.test(key) ||
+						SENSITIVE_FIELD_NAME.test(maskedKey)
+				),
+			];
+		})
 	);
 }
 
@@ -196,6 +212,10 @@ function maskProbeValue(value: unknown, sensitive: boolean = false): unknown {
 	if (value !== null && typeof value === 'object') {
 		return maskProbeRecord(value as Readonly<Record<string, unknown>>, sensitive);
 	}
+	// Non-string primitives (number, boolean) are redacted entirely when they
+	// sit beneath a sensitive field name, since maskSecrets only handles
+	// strings. Non-sensitive primitives (e.g. tool counts) pass through.
+	if (sensitive) return REDACTED_NON_STRING;
 	return value;
 }
 
