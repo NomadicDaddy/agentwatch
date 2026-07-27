@@ -7,6 +7,13 @@ import { PACKAGE_VERSION } from '../version.ts';
 const PROTOCOL_VERSION = '2024-11-05';
 const CLIENT_NAME = 'agentwatch';
 const DEFAULT_TIMEOUT_MS = 15_000;
+/**
+ * Hard cap on the number of bytes read from a single probe response body.
+ * Matches the artifact reader's `DEFAULT_MAX_FILE_BYTES` (1 MiB) so an
+ * untrusted MCP endpoint cannot hold the CLI indefinitely or force an
+ * unbounded allocation through a slow, never-closing, or oversized stream.
+ */
+const MAX_RESPONSE_BYTES = 1024 * 1024;
 
 const JSON_RPC_RESPONSE_SCHEMA = z
 	.object({
@@ -124,25 +131,107 @@ export class McpHttpClient {
 		return headers;
 	}
 
-	private async fetchWithTimeout(body: string): Promise<Response> {
+	/**
+	 * Issue the POST with an AbortController whose timeout covers the entire
+	 * request AND response body. The controller and timer stay live after the
+	 * headers arrive so a slow, never-closing, or oversized stream still hits
+	 * the deadline. The caller clears the timer once the body is fully read or
+	 * rejected.
+	 */
+	private startTimedFetch(body: string): {
+		controller: AbortController;
+		promise: Promise<Response>;
+		timer: ReturnType<typeof setTimeout>;
+	} {
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+		const promise = fetch(this.url, {
+			body,
+			headers: this.buildHeaders(),
+			method: 'POST',
+			redirect: 'error',
+			signal: controller.signal,
+		});
+		return { controller, promise, timer };
+	}
+
+	/**
+	 * Read a response body incrementally with an active deadline and a hard
+	 * 1 MiB byte cap. Replaces the previous `response.text()` call, which read
+	 * the full body with no deadline once the headers arrived.
+	 *
+	 * - Declared `Content-Length` above the cap is rejected before any bytes
+	 *   are pulled, so a server cannot advertise a huge body and still pin the
+	 *   connection while we buffer it.
+	 * - Streamed responses are read in fixed chunks; if the cumulative byte
+	 *   count exceeds the cap the read is cancelled and rejected.
+	 * - The `AbortController`/timer passed in stay active for the duration of
+	 *   the read, so a never-closing stream aborts at the deadline instead of
+	 *   hanging the CLI.
+	 */
+	private async readBoundedText(
+		response: Response,
+		controller: AbortController,
+		timer: ReturnType<typeof setTimeout>
+	): Promise<string> {
 		try {
-			return await fetch(this.url, {
-				body,
-				headers: this.buildHeaders(),
-				method: 'POST',
-				redirect: 'error',
-				signal: controller.signal,
-			});
+			const declared = response.headers.get('content-length');
+			if (declared !== null) {
+				const parsed = Number.parseInt(declared, 10);
+				if (Number.isSafeInteger(parsed) && parsed > MAX_RESPONSE_BYTES) {
+					throw new Error(
+						`Response body exceeds ${MAX_RESPONSE_BYTES} byte cap (declared ${parsed})`
+					);
+				}
+			}
+
+			// Responses without a usable body (e.g. 204) resolve to an empty
+			// string without touching the stream.
+			if (response.body === null) return '';
+
+			const reader = response.body.getReader();
+			const decoder = new TextDecoder();
+			const chunks: string[] = [];
+			let total = 0;
+
+			try {
+				for (;;) {
+					const { done, value } = await reader.read();
+					if (done) break;
+					// `value` is a Uint8Array chunk from the stream.
+					if (value !== undefined) {
+						total += value.byteLength;
+						if (total > MAX_RESPONSE_BYTES) {
+							await reader.cancel().catch(() => {
+								// Best-effort cancel; the rejection path below is authoritative.
+							});
+							throw new Error(
+								`Response body exceeded ${MAX_RESPONSE_BYTES} byte cap after ${total} bytes`
+							);
+						}
+						chunks.push(decoder.decode(value, { stream: true }));
+					}
+				}
+				chunks.push(decoder.decode());
+				return chunks.join('');
+			} finally {
+				reader.releaseLock();
+			}
 		} finally {
 			clearTimeout(timer);
+			// Ensure a late abort cannot fire after the read resolved/rejected.
+			controller.abort();
 		}
 	}
 
 	private async notify(method: string, params?: unknown): Promise<void> {
 		const body = JSON.stringify({ jsonrpc: '2.0', method, ...(params ? { params } : {}) });
-		await this.fetchWithTimeout(body);
+		const { promise, timer } = this.startTimedFetch(body);
+		try {
+			await promise;
+		} finally {
+			clearTimeout(timer);
+		}
 	}
 
 	private async request<T>(
@@ -157,19 +246,25 @@ export class McpHttpClient {
 			method,
 			...(params !== undefined ? { params } : {}),
 		});
-		const response = await this.fetchWithTimeout(body);
+		const { controller, promise, timer } = this.startTimedFetch(body);
+		const response = await promise;
 
 		const sessionHeader = response.headers.get('mcp-session-id');
 		if (sessionHeader) this.sessionId = sessionHeader;
 
 		if (response.status === 204) {
+			clearTimeout(timer);
+			controller.abort();
 			throw new Error('Server returned 204 with no JSON-RPC payload');
 		}
 		if (!response.ok) {
+			clearTimeout(timer);
+			controller.abort();
 			throw new Error(`HTTP ${response.status} ${response.statusText}`);
 		}
 
-		const parsed = parseJsonRpc(await response.text());
+		const text = await this.readBoundedText(response, controller, timer);
+		const parsed = parseJsonRpc(text);
 		if (parsed === null) throw new Error('Empty or unparseable response body');
 		const envelope = JSON_RPC_RESPONSE_SCHEMA.safeParse(parsed);
 		if (!envelope.success) throw validationError('JSON-RPC response', envelope.error);

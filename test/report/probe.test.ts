@@ -364,3 +364,140 @@ describe('probe exit code for partial and total failure', () => {
 		}
 	});
 });
+
+describe('probe response body bounds (time and size)', () => {
+	/**
+	 * Build a ReadableStream that never produces a chunk and never closes on
+	 * its own, simulating a malicious or wedged MCP endpoint. The stream is
+	 * tied to the fetch's AbortSignal: when the probe's timeout fires and
+	 * aborts the controller, the stream errors so the pending read rejects.
+	 * A real fetch response body behaves the same way — its underlying stream
+	 * is cancelled/errored when the fetch signal aborts.
+	 */
+	function neverClosingStream(signal: AbortSignal): ReadableStream<Uint8Array> {
+		return new ReadableStream<Uint8Array>({
+			start(controller) {
+				signal.addEventListener(
+					'abort',
+					() => {
+						controller.error(new DOMException('Aborted', 'AbortError'));
+					},
+					{ once: true }
+				);
+				// Intentionally never enqueue or close on its own.
+			},
+		});
+	}
+
+	test('a never-closing response body aborts within the timeout instead of hanging', async () => {
+		const originalFetch = globalThis.fetch;
+		Object.assign(globalThis, {
+			fetch: async (_input: Request | string | URL, init?: RequestInit) => {
+				const signal = init?.signal ?? new AbortController().signal;
+				return new Response(neverClosingStream(signal), {
+					headers: { 'content-type': 'application/json' },
+				});
+			},
+		});
+
+		try {
+			const start = Date.now();
+			const { exitCode, output } = await captureStdout(() =>
+				runProbe('https://example.test/mcp', { json: false, timeoutMs: 200 })
+			);
+			const elapsed = Date.now() - start;
+
+			// initialize never resolves because the body never arrives, so it
+			// becomes an initialize-stage error and all-stages-failed exits 1.
+			expect(exitCode).toBe(1);
+			expect(output).toContain('[initialize]');
+			// Must return well before the 5s idle-killer — the body read was
+			// bounded by the timeout, not left pending.
+			expect(elapsed).toBeLessThan(4000);
+		} finally {
+			Object.assign(globalThis, { fetch: originalFetch });
+		}
+	});
+
+	test('an oversized streamed body is rejected at the 1 MiB cap', async () => {
+		// Stream just over 1 MiB in 256 KiB chunks; the reader must cancel and
+		// reject once the cumulative byte count exceeds the cap.
+		const chunk = new Uint8Array(256 * 1024).fill(0x61); // 'a'
+		function oversizedStream(): ReadableStream<Uint8Array> {
+			let sent = 0;
+			return new ReadableStream<Uint8Array>({
+				pull(controller) {
+					if (sent < 5) {
+						controller.enqueue(chunk);
+						sent++;
+					} else {
+						controller.close();
+					}
+				},
+			});
+		}
+
+		const originalFetch = globalThis.fetch;
+		Object.assign(globalThis, {
+			fetch: async (_input: Request | string | URL, _init?: RequestInit) =>
+				new Response(oversizedStream(), {
+					headers: { 'content-type': 'application/json' },
+				}),
+		});
+
+		try {
+			const { exitCode, output } = await captureStdout(() =>
+				runProbe('https://example.test/mcp', { json: false })
+			);
+
+			// The initialize request body exceeds the cap, so initialize errors
+			// and all attempted stages (initialize only) errored -> exit 1.
+			expect(exitCode).toBe(1);
+			expect(output).toContain('[initialize]');
+			expect(output).toContain('byte cap');
+		} finally {
+			Object.assign(globalThis, { fetch: originalFetch });
+		}
+	});
+
+	test('a declared Content-Length above the cap is rejected without buffering the body', async () => {
+		const originalFetch = globalThis.fetch;
+		Object.assign(globalThis, {
+			fetch: async (_input: Request | string | URL, _init?: RequestInit) => {
+				// Stream that would be expensive to buffer: 2 MiB of data. The
+				// Content-Length check must reject before the full body is read.
+				const chunk = new Uint8Array(64 * 1024).fill(0x61);
+				return new Response(
+					new ReadableStream<Uint8Array>({
+						pull(controller) {
+							controller.enqueue(chunk);
+						},
+					}),
+					{
+						headers: {
+							'content-length': String(2 * 1024 * 1024),
+							'content-type': 'application/json',
+						},
+					}
+				);
+			},
+		});
+
+		try {
+			const start = Date.now();
+			const { exitCode, output } = await captureStdout(() =>
+				runProbe('https://example.test/mcp', { json: false })
+			);
+			const elapsed = Date.now() - start;
+
+			expect(exitCode).toBe(1);
+			expect(output).toContain('[initialize]');
+			expect(output).toContain('byte cap');
+			// The declared-length check rejects immediately rather than draining
+			// the full oversized stream — the rejection returns in milliseconds.
+			expect(elapsed).toBeLessThan(2000);
+		} finally {
+			Object.assign(globalThis, { fetch: originalFetch });
+		}
+	});
+});
