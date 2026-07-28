@@ -21,6 +21,15 @@ interface JsonFindingGroup {
 const PROJECT_ROOT = resolve(import.meta.dir, '..', '..');
 const CLI_ENTRY = resolve(PROJECT_ROOT, 'src', 'cli.ts');
 const MCP_FIXTURE = resolve(PROJECT_ROOT, 'test', 'fixtures', 'bad-actor', '.mcp.json');
+const SKILL_FIXTURE = resolve(
+	PROJECT_ROOT,
+	'test',
+	'fixtures',
+	'bad-actor',
+	'skills',
+	'evil-skill',
+	'SKILL.md'
+);
 const BENIGN_MCP_FIXTURE = resolve(PROJECT_ROOT, 'test', 'fixtures', 'focused', 'benign-mcp.json');
 const DISJOINT_FIXTURE = resolve(
 	PROJECT_ROOT,
@@ -37,6 +46,12 @@ const MCP_RULE_IDS: readonly string[] = [
 	'agent.remote-manifest',
 	'agent.unpinned-execution-bridge',
 ];
+const SKILL_RULE_IDS: readonly string[] = [
+	'agent.broad-tool-surface',
+	'agent.credential-file-reference',
+	'agent.memory-context-request',
+	'agent.trigger-based-invocation',
+];
 
 function runCli(args: readonly string[]): CliResult {
 	const result = spawnSync('bun', [CLI_ENTRY, ...args], {
@@ -52,6 +67,28 @@ function runCli(args: readonly string[]): CliResult {
 }
 
 describe('focused inspection and explanations', () => {
+	test('inspect-skill runs exactly the four focused rule families below medium', () => {
+		const result = runCli(['inspect-skill', SKILL_FIXTURE, '--json']);
+		const report = JSON.parse(result.stdout) as {
+			readonly findings: readonly JsonFindingGroup[];
+		};
+		const allFindings = report.findings.flatMap((group) => group.findings);
+		const ruleIds = [...new Set(allFindings.map((finding) => finding.ruleId))].sort();
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stderr).toBe('');
+		expect(ruleIds).toEqual([...SKILL_RULE_IDS]);
+		expect(allFindings.every((finding) => finding.severity === 'info')).toBe(true);
+	});
+
+	test('inspect-skill returns exit code 2 for an unreadable file', () => {
+		const result = runCli(['inspect-skill', '__missing-skill__.md']);
+
+		expect(result.exitCode).toBe(2);
+		expect(result.stdout).toBe('');
+		expect(result.stderr).toContain('inspect-skill: cannot read');
+	});
+
 	test('inspect-mcp correlates signals and explain covers the same registered MCP rules', () => {
 		const result = runCli(['inspect-mcp', MCP_FIXTURE, '--json']);
 		const report = JSON.parse(result.stdout) as {
