@@ -29,6 +29,7 @@
 		"bun": ">=1.3.14"
 	},
 	"scripts": {
+		"audit:dependencies": "bun audit",
 		"build": "bun build ./src/cli.ts --target=bun --outdir=dist",
 		"compile": "bun build ./src/cli.ts --compile --outfile=dist/agentwatch",
 		"deploy": "echo 'No deploy command is configured for this local target. See .aidd/deployment.md.' && exit 1",
@@ -37,7 +38,7 @@
 		"lint": "eslint \"{src,scripts,test}/**/*.ts\" \"*.js\" --max-warnings 0",
 		"lint:fix": "eslint --fix \"{src,scripts,test}/**/*.ts\" \"*.js\" --max-warnings 0",
 		"scan:fixtures": "bun ./scripts/scan-fixtures.ts",
-		"smoke:qc": "bun run typecheck && bun run lint && bun run format:check && bun run scan:fixtures",
+		"smoke:qc": "bun run typecheck && bun run lint && bun run format:check && bun run audit:dependencies && bun run scan:fixtures",
 		"start": "bun src/cli.ts",
 		"test": "bun test",
 		"typecheck": "tsc --noEmit",
@@ -65,5 +66,8 @@
 		"audit",
 		"cli"
 	],
-	"license": "MIT"
+	"license": "MIT",
+	"overrides": {
+		"brace-expansion": "5.0.8"
+	}
 }
