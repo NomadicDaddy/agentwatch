@@ -110,6 +110,9 @@ bun src/cli.ts probe https://example.com/mcp
 
 # Explain a specific finding
 bun src/cli.ts explain agent.remote-capability
+
+# Print the bundled AgentWatch and third-party license notices
+bun src/cli.ts --license
 ```
 
 ### `probe` — opt-in remote MCP enumeration
