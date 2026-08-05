@@ -16,6 +16,11 @@
 
 import type { Artifact, Finding, Rule, RuleContext } from './types.ts';
 
+import {
+	findLinePatternMatches,
+	type LinePatternMatch,
+	type LinePatternSpec,
+} from './line-patterns.ts';
 import { computeScore, computeSeverity, Signal } from './scoring.ts';
 
 type BroadKind =
@@ -27,9 +32,7 @@ type BroadKind =
 	| 'universal'
 	| 'unlimited';
 
-interface PatternSpec {
-	readonly kind: BroadKind;
-	readonly pattern: RegExp;
+interface PatternSpec extends LinePatternSpec<BroadKind> {
 	readonly title: string;
 }
 
@@ -89,36 +92,7 @@ const IN_SCOPE: ReadonlySet<Artifact['type']> = new Set([
 	'agent-instruction',
 ]);
 
-interface Match {
-	readonly evidence: string;
-	readonly kind: BroadKind;
-	readonly line: number;
-	readonly title: string;
-}
-
-function findMatches(content: string): Match[] {
-	const seen = new Set<string>();
-	const matches: Match[] = [];
-	const lines = content.split(/\r?\n/);
-
-	for (let i = 0; i < lines.length; i++) {
-		const line = lines[i] ?? '';
-		for (const spec of PATTERNS) {
-			if (seen.has(`${spec.kind}:${i + 1}`)) continue;
-			if (spec.pattern.test(line)) {
-				seen.add(`${spec.kind}:${i + 1}`);
-				matches.push({
-					evidence: line.trim().slice(0, 240),
-					kind: spec.kind,
-					line: i + 1,
-					title: spec.title,
-				});
-			}
-		}
-	}
-
-	return matches;
-}
+type Match = LinePatternMatch<BroadKind, PatternSpec>;
 
 function buildFinding(artifact: Artifact, match: Match): Finding {
 	const signals: readonly string[] = [Signal.BroadWording];
@@ -152,7 +126,7 @@ export const broadToolSurfaceRule: Rule = {
 		const findings: Finding[] = [];
 		for (const artifact of ctx.artifacts) {
 			if (!IN_SCOPE.has(artifact.type)) continue;
-			for (const match of findMatches(artifact.content)) {
+			for (const match of findLinePatternMatches(artifact.content, PATTERNS)) {
 				findings.push(buildFinding(artifact, match));
 			}
 		}
