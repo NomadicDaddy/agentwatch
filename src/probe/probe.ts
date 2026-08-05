@@ -18,15 +18,7 @@ import type {
 
 import { McpHttpClient } from './client.ts';
 
-export type {
-	McpPromptInfo,
-	McpResourceInfo,
-	McpToolInfo,
-	ProbeError,
-	ProbeOptions,
-	ProbeResult,
-	ProbeStage,
-} from './probe-types.ts';
+export type { ProbeOptions, ProbeResult, ProbeStage } from './probe-types.ts';
 
 function errMsg(error: unknown): string {
 	if (error instanceof Error) {

@@ -9,8 +9,6 @@
 import type { AgentPlatform } from '../scanner/agent-registry.ts';
 import type { AgentSource } from '../scanner/targets.ts';
 
-export type { AgentSource };
-
 /** Categorical type of an inspected artifact. Mirrors spec.md "Artifact Types". */
 export type ArtifactType =
 	| 'agent-instruction'

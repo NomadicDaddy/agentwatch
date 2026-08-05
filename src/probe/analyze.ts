@@ -12,7 +12,7 @@
 import type { Severity } from '../rules/types.ts';
 import type { ProbeResult } from './probe.ts';
 
-export type ProbeIssueKind =
+type ProbeIssueKind =
 	| 'broad-surface-tool'
 	| 'gateway-wording-tool'
 	| 'generic-dispatch-tool'
