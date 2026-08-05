@@ -162,19 +162,20 @@ bun install
 ### Commands
 
 ```bash
-bun run build       # Build the CLI
-bun run compile     # Compile to standalone binary
-bun run smoke:qc    # Run the required non-mutating quality gate
-bun run test        # Run the separate required Bun test suite
-bun run typecheck   # TypeScript type checking
-bun run lint        # Lint code
-bun run format      # Format code with Prettier (mutates files)
+bun run build           # Build the CLI
+bun run check:max-lines # Enforce the 300-line production-module limit
+bun run compile         # Compile to standalone binary
+bun run smoke:qc        # Run the required non-mutating quality gate
+bun run test            # Run the separate required Bun test suite
+bun run typecheck       # TypeScript type checking
+bun run lint            # Lint code
+bun run format          # Format code with Prettier (mutates files)
 ```
 
-`bun run smoke:qc` runs the leak-guard self-test, type checking, zero-warning lint,
-Prettier formatting check, dependency audit, and isolated all-rules fixture scan. It does
-not run `bun run test`; both commands must pass before a change is considered complete.
-`bun run format` is the mutating formatter and is not part of the quality gate.
+`bun run smoke:qc` runs the leak-guard self-test, the 300-line production-module check,
+type checking, zero-warning lint, Prettier formatting check, dependency audit, and isolated
+all-rules fixture scan. It does not run `bun run test`; both commands must pass before a change
+is considered complete. `bun run format` is the mutating formatter and is not part of the gate.
 
 ## Tech Stack
 
