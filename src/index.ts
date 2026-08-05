@@ -2,6 +2,7 @@ export { formatHuman } from './report/human.ts';
 export type { HumanReportOptions, ScanInventory } from './report/human.ts';
 export { formatJson } from './report/json.ts';
 export type { JsonReportOptions } from './report/json.ts';
+export { broadToolSurfaceRule } from './rules/broad-tool-surface.ts';
 export { credentialFileReferenceRule } from './rules/credential-file-reference.ts';
 export { credentialReachabilityRule } from './rules/credential-reachability.ts';
 export { dynamicToolRegistryRule } from './rules/dynamic-tools.ts';
@@ -32,6 +33,7 @@ export type {
 	Severity,
 } from './rules/types.ts';
 export { unpinnedExecutionBridgeRule } from './rules/unpinned-execution-bridge.ts';
+export { untrustedInstallSourceRule } from './rules/untrusted-install-source.ts';
 export {
 	getAgentByName,
 	getAllAgents,
