@@ -8,7 +8,38 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import { type AgentInfo, getAllAgents, getAgentByName } from '../../src/scanner/agent-registry.ts';
+import {
+	type AgentInfo,
+	getAllAgents,
+	getAgentByName,
+	getSupportedAgentNames,
+} from '../../src/scanner/agent-registry.ts';
+
+// The complete stable public registry, including AgentWatch-only inspection surfaces and custom.
+const SUPPORTED_AGENT_NAMES = [
+	'claude',
+	'codex',
+	'opencode',
+	'kilo',
+	'cursor',
+	'windsurf',
+	'windsurf-next',
+	'antigravity',
+	'gemini',
+	'grok',
+	'kiro',
+	'copilot',
+	'zcode',
+	'agents',
+	'cline',
+	'devin',
+	'devin-next',
+	't3code',
+	'pi',
+	'mcp',
+	'skills',
+	'custom',
+] as const;
 
 // The canonical agent-home set recognized by this registry (16 homes).
 const CANONICAL_AGENTS = [
@@ -41,6 +72,15 @@ const BOTH_PATH_EXPECTATIONS: readonly (readonly [string, readonly string[]])[] 
 	['antigravity', ['~/.gemini/antigravity', '~/.antigravity']],
 	['t3code', ['~/.t3', '%APPDATA%/t3code']],
 	['devin', ['~/.devin', '~/.config/devin', '%APPDATA%/devin']],
+	[
+		'devin-next',
+		[
+			'~/.devin-next',
+			'%APPDATA%/Devin - Next',
+			'~/Library/Application Support/Devin - Next',
+			'~/.config/Devin - Next',
+		],
+	],
 ] as const;
 
 function allPathTemplates(agent: AgentInfo): readonly string[] {
@@ -49,6 +89,10 @@ function allPathTemplates(agent: AgentInfo): readonly string[] {
 }
 
 describe('agent registry covers the canonical agent-home set', () => {
+	test('publishes the complete stable supported-agent registry', () => {
+		expect(getSupportedAgentNames()).toEqual(SUPPORTED_AGENT_NAMES);
+	});
+
 	test('every canonical agent home is registered', () => {
 		for (const name of CANONICAL_AGENTS) {
 			expect(getAgentByName(name), `expected agent '${name}' to be registered`).toBeDefined();
