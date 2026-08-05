@@ -115,7 +115,7 @@ export const remoteManifestRule: Rule = {
 		'after install.',
 	group: 'remote-capabilities',
 	id: 'agent.remote-manifest',
-	async scan(ctx: RuleContext): Promise<Finding[]> {
+	scan(ctx: RuleContext): Finding[] {
 		const findings: Finding[] = [];
 		for (const artifact of ctx.artifacts) {
 			if (!IN_SCOPE.has(artifact.type)) continue;

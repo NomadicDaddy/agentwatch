@@ -68,7 +68,7 @@ export const untrustedInstallSourceRule: Rule = {
 		'declared origin URLs.',
 	group: 'untrusted-provenance',
 	id: 'agent.untrusted-install-source',
-	async scan(ctx: RuleContext): Promise<Finding[]> {
+	scan(ctx: RuleContext): Finding[] {
 		const findings: Finding[] = [];
 		for (const artifact of ctx.artifacts) {
 			if (!IN_SCOPE.has(artifact.type)) continue;

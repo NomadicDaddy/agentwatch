@@ -25,7 +25,7 @@ export default tseslint.config([
 		ignores: ['**/*.min.js', '**/dist/**', '**/node_modules/**'],
 	},
 	{
-		extends: [js.configs.recommended, ...tseslint.configs.recommended],
+		extends: [js.configs.recommended, ...tseslint.configs.recommendedTypeChecked],
 		files: ['**/*.{ts,tsx,js,jsx}'],
 		languageOptions: {
 			ecmaVersion: 2022,
@@ -34,6 +34,7 @@ export default tseslint.config([
 				...globals.bun,
 			},
 			parserOptions: {
+				projectService: true,
 				tsconfigRootDir: import.meta.dirname,
 			},
 			sourceType: 'module',
@@ -51,6 +52,7 @@ export default tseslint.config([
 			],
 			'@typescript-eslint/no-explicit-any': 'error',
 			'@typescript-eslint/no-unused-vars': 'off',
+			'@typescript-eslint/unbound-method': 'error',
 			eqeqeq: ['error', 'always'],
 			'import/no-default-export': 'error',
 			'no-console': 'off',
@@ -109,6 +111,7 @@ export default tseslint.config([
 		},
 	},
 	{
+		extends: [tseslint.configs.disableTypeChecked],
 		files: ['**/*.js'],
 		languageOptions: {
 			globals: globals.node,

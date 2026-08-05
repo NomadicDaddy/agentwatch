@@ -79,7 +79,7 @@ export interface Rule {
 	readonly description: string;
 	readonly group: FindingGroup;
 	readonly id: string;
-	scan(ctx: RuleContext): Promise<Finding[]>;
+	scan: (ctx: RuleContext) => Finding[] | Promise<Finding[]>;
 	readonly title: string;
 }
 

@@ -130,7 +130,7 @@ export class McpHttpClient {
 		// string without touching the stream.
 		if (response.body === null) return '';
 
-		const reader = response.body.getReader();
+		const reader = (response.body as ReadableStream<Uint8Array>).getReader();
 		const decoder = new TextDecoder();
 		const chunks: string[] = [];
 		let total = 0;

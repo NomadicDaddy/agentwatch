@@ -68,7 +68,7 @@ export const TOOLS_LIST_RESULT_SCHEMA = z.object({
 
 export type InitializeResult = z.infer<typeof INITIALIZE_RESULT_SCHEMA>;
 
-export function parseJsonRpc(text: string): null | unknown {
+export function parseJsonRpc(text: string): unknown {
 	const trimmed = text.trim();
 	if (!trimmed) return null;
 	if (trimmed.startsWith('{') || trimmed.startsWith('[')) {

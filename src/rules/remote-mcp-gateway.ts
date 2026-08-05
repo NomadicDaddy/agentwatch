@@ -147,7 +147,7 @@ export const remoteMcpGatewayRule: Rule = {
 		'remote endpoint, the finding escalates accordingly.',
 	group: 'remote-capabilities',
 	id: 'agent.remote-generic-mcp-gateway',
-	async scan(ctx: RuleContext): Promise<Finding[]> {
+	scan(ctx: RuleContext): Finding[] {
 		const findings: Finding[] = [];
 		for (const artifact of ctx.artifacts) {
 			if (!IN_SCOPE.has(artifact.type)) continue;

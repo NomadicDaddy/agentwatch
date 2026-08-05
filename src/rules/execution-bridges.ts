@@ -128,7 +128,7 @@ export const localExecutionBridgeRule: Rule = {
 		'the user’s machine.',
 	group: 'local-execution-bridges',
 	id: 'agent.local-execution-bridge',
-	async scan(ctx: RuleContext): Promise<Finding[]> {
+	scan(ctx: RuleContext): Finding[] {
 		const findings: Finding[] = [];
 		for (const artifact of ctx.artifacts) {
 			if (!IN_SCOPE.has(artifact.type)) continue;

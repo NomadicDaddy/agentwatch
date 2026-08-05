@@ -121,7 +121,7 @@ export const credentialFileReferenceRule: Rule = {
 		'passwords/api-keys from disk.',
 	group: 'credential-reachability',
 	id: 'agent.credential-file-reference',
-	async scan(ctx: RuleContext): Promise<Finding[]> {
+	scan(ctx: RuleContext): Finding[] {
 		const findings: Finding[] = [];
 		for (const artifact of ctx.artifacts) {
 			if (!IN_SCOPE.has(artifact.type)) continue;

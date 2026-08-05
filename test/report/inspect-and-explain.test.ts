@@ -149,9 +149,9 @@ describe('focused inspection and explanations', () => {
 		expect(result.stderr).toBe('');
 		expect(critical).toHaveLength(1);
 		expect(critical[0]?.severity).toBe('critical');
-		expect(critical[0]?.signals).toEqual(
-			expect.arrayContaining(['dynamic-registry', 'local-execution', 'remote-endpoint'])
-		);
+		for (const signal of ['dynamic-registry', 'local-execution', 'remote-endpoint']) {
+			expect(critical[0]?.signals).toContain(signal);
+		}
 		// The five focused rule ids remain present alongside the correlation.
 		const focusedRuleIds = ruleIds.filter((id) => id !== CRITICAL_CORRELATION_RULE_ID);
 		expect(focusedRuleIds).toEqual([...MCP_RULE_IDS]);

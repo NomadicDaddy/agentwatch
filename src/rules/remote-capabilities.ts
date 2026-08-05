@@ -139,7 +139,7 @@ export const remoteCapabilityRule: Rule = {
 		'off-machine and can change behavior without re-review.',
 	group: 'remote-capabilities',
 	id: 'agent.remote-capability',
-	async scan(ctx: RuleContext): Promise<Finding[]> {
+	scan(ctx: RuleContext): Finding[] {
 		const findings: Finding[] = [];
 		for (const artifact of ctx.artifacts) {
 			if (!IN_SCOPE.has(artifact.type)) continue;

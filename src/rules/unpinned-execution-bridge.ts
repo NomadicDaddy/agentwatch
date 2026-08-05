@@ -275,7 +275,7 @@ export const unpinnedExecutionBridgeRule: Rule = {
 		'hijacked or republished package can introduce new code with no review.',
 	group: 'local-execution-bridges',
 	id: 'agent.unpinned-execution-bridge',
-	async scan(ctx: RuleContext): Promise<Finding[]> {
+	scan(ctx: RuleContext): Finding[] {
 		const findings: Finding[] = [];
 		for (const artifact of ctx.artifacts) {
 			if (!IN_SCOPE.has(artifact.type)) continue;

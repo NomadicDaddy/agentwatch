@@ -122,7 +122,7 @@ export const broadToolSurfaceRule: Rule = {
 		'artifact will not constrain agent behavior.',
 	group: 'dynamic-tool-surfaces',
 	id: 'agent.broad-tool-surface',
-	async scan(ctx: RuleContext): Promise<Finding[]> {
+	scan(ctx: RuleContext): Finding[] {
 		const findings: Finding[] = [];
 		for (const artifact of ctx.artifacts) {
 			if (!IN_SCOPE.has(artifact.type)) continue;

@@ -133,7 +133,9 @@ describe('human report credential masking', () => {
 				.stdout,
 		];
 
-		expect(() => JSON.parse(outputs[1] ?? '')).not.toThrow();
+		expect(() => {
+			JSON.parse(outputs[1] ?? '');
+		}).not.toThrow();
 		for (const output of outputs) {
 			for (const secret of CREDENTIAL_FORMAT_SECRETS) {
 				expect(output).not.toContain(secret);
@@ -232,7 +234,18 @@ describe('sensitive path masking in reporter output', () => {
 		});
 
 		// Must be valid JSON.
-		const payload = JSON.parse(json);
+		const payload = JSON.parse(json) as {
+			readonly findings: readonly {
+				readonly findings: readonly {
+					readonly file?: string;
+					readonly source: { readonly root: string };
+				}[];
+				readonly group: string;
+			}[];
+			readonly inventory: {
+				readonly agents: readonly { readonly root: string }[];
+			};
+		};
 
 		// Sensitive tails must be absent from the raw string.
 		expect(json).not.toContain('/home/alice/.ssh/config');
@@ -243,20 +256,25 @@ describe('sensitive path masking in reporter output', () => {
 		expect(json).toContain('.aws/');
 
 		// Inventory root masked.
-		const inventoryRoot = payload.inventory.agents[0].root;
+		const inventoryRoot = payload.inventory.agents[0]?.root;
+		if (inventoryRoot === undefined) throw new Error('Expected one inventory agent');
 		expect(inventoryRoot).not.toBe('/home/alice/.ssh/config');
 		expect(inventoryRoot).toContain('.ssh/');
 
 		// Finding source root masked — find the group that contains the finding.
 		const credGroup = payload.findings.find(
-			(g: { group: string }) => g.group === 'credential-reachability'
+			(group) => group.group === 'credential-reachability'
 		);
-		const findingRoot = credGroup.findings[0].source.root;
+		if (credGroup === undefined) throw new Error('Expected credential-reachability group');
+		const credentialFinding = credGroup.findings[0];
+		if (credentialFinding === undefined) throw new Error('Expected credential finding');
+		const findingRoot = credentialFinding.source.root;
 		expect(findingRoot).not.toBe('/home/alice/.ssh/config');
 		expect(findingRoot).toContain('.ssh/');
 
 		// Finding file path masked.
-		const findingFile = credGroup.findings[0].file;
+		const findingFile = credentialFinding.file;
+		if (findingFile === undefined) throw new Error('Expected credential finding file');
 		expect(findingFile).not.toBe('/home/alice/.aws/credentials');
 		expect(findingFile).toContain('.aws/');
 	});

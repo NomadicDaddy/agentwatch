@@ -116,7 +116,7 @@ export const dynamicToolRegistryRule: Rule = {
 		'that can change after install.',
 	group: 'dynamic-tool-surfaces',
 	id: 'agent.dynamic-tool-registry',
-	async scan(ctx: RuleContext): Promise<Finding[]> {
+	scan(ctx: RuleContext): Finding[] {
 		const findings: Finding[] = [];
 		for (const artifact of ctx.artifacts) {
 			if (!IN_SCOPE.has(artifact.type)) continue;

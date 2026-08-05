@@ -116,7 +116,7 @@ export const triggerBasedInvocationRule: Rule = {
 		'patterns expand the dynamic capability surface unprompted.',
 	group: 'dynamic-tool-surfaces',
 	id: 'agent.trigger-based-invocation',
-	async scan(ctx: RuleContext): Promise<Finding[]> {
+	scan(ctx: RuleContext): Finding[] {
 		const findings: Finding[] = [];
 		for (const artifact of ctx.artifacts) {
 			if (!IN_SCOPE.has(artifact.type)) continue;

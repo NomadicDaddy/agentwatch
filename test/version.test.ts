@@ -129,11 +129,11 @@ describe('package version authority', () => {
 		];
 		const originalFetch = globalThis.fetch;
 		Object.assign(globalThis, {
-			fetch: async (_input: Request | string | URL, init?: RequestInit) => {
+			fetch: (_input: Request | string | URL, init?: RequestInit) => {
 				if (typeof init?.body === 'string') requestBodies.push(init.body);
 				const response = responses.shift();
-				if (!response) throw new Error('Unexpected probe request');
-				return response;
+				if (!response) return Promise.reject(new Error('Unexpected probe request'));
+				return Promise.resolve(response);
 			},
 		});
 		const output: string[] = [];

@@ -121,7 +121,7 @@ export const credentialReachabilityRule: Rule = {
 		'path to reach user credentials or credential-bearing resources.',
 	group: 'credential-reachability',
 	id: 'agent.connector-credential-reachability',
-	async scan(ctx: RuleContext): Promise<Finding[]> {
+	scan(ctx: RuleContext): Finding[] {
 		const findings: Finding[] = [];
 		for (const artifact of ctx.artifacts) {
 			if (!isInScope(artifact)) continue;

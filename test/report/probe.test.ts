@@ -109,11 +109,11 @@ async function captureProbeOutput(
 ): Promise<string> {
 	const originalFetch = globalThis.fetch;
 	Object.assign(globalThis, {
-		fetch: async (_input: Request | string | URL, init?: RequestInit) => {
+		fetch: (_input: Request | string | URL, init?: RequestInit) => {
 			if (init) requestOptions?.push(init);
 			const response = responses.shift();
-			if (!response) throw new Error('Unexpected probe request');
-			return response;
+			if (!response) return Promise.reject(new Error('Unexpected probe request'));
+			return Promise.resolve(response);
 		},
 	});
 
@@ -190,12 +190,9 @@ describe('probe response validation', () => {
 		};
 
 		expect(human).toContain('[initialize] Invalid initialize result');
-		expect(payload.probe.errors).toEqual([
-			expect.objectContaining({
-				message: expect.stringContaining('Invalid initialize result'),
-				stage: 'initialize',
-			}),
-		]);
+		expect(payload.probe.errors).toHaveLength(1);
+		expect(payload.probe.errors[0]?.message).toContain('Invalid initialize result');
+		expect(payload.probe.errors[0]?.stage).toBe('initialize');
 		expect(payload.probe.serverInfo).toBeUndefined();
 	});
 
@@ -276,9 +273,8 @@ describe('probe redirect safety', () => {
 			expect(human.output).toContain('Errors');
 			expect(human.output).toContain('[initialize]');
 			expect(json.exitCode).toBe(1);
-			expect(payload.probe.errors).toEqual([
-				expect.objectContaining({ stage: 'initialize' }),
-			]);
+			expect(payload.probe.errors).toHaveLength(1);
+			expect(payload.probe.errors[0]?.stage).toBe('initialize');
 			expect(destinationRequests).toBe(0);
 		} finally {
 			await source.stop(true);
@@ -321,10 +317,10 @@ describe('probe exit code for partial and total failure', () => {
 
 		const originalFetch = globalThis.fetch;
 		Object.assign(globalThis, {
-			fetch: async (_input: Request | string | URL, _init?: RequestInit) => {
+			fetch: (_input: Request | string | URL, _init?: RequestInit) => {
 				const response = responses.shift();
-				if (!response) throw new Error('Unexpected probe request');
-				return response;
+				if (!response) return Promise.reject(new Error('Unexpected probe request'));
+				return Promise.resolve(response);
 			},
 		});
 
@@ -349,9 +345,8 @@ describe('probe exit code for partial and total failure', () => {
 		// initialize fails — that is the only stage attempted, and it errored.
 		const originalFetch = globalThis.fetch;
 		Object.assign(globalThis, {
-			fetch: async (_input: Request | string | URL, _init?: RequestInit) => {
-				return new Response(null, { status: 503, statusText: 'unavailable' });
-			},
+			fetch: (_input: Request | string | URL, _init?: RequestInit) =>
+				Promise.resolve(new Response(null, { status: 503, statusText: 'unavailable' })),
 		});
 
 		try {
@@ -419,9 +414,7 @@ describe('probe response body bounds (time and size)', () => {
 		const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockReturnValue(timer);
 		const clearTimeoutSpy = spyOn(globalThis, 'clearTimeout');
 		Object.assign(globalThis, {
-			fetch: async () => {
-				throw new Error('connection failed before headers');
-			},
+			fetch: () => Promise.reject(new Error('connection failed before headers')),
 		});
 
 		try {
@@ -466,11 +459,13 @@ describe('probe response body bounds (time and size)', () => {
 	test('a never-closing response body aborts within the timeout instead of hanging', async () => {
 		const originalFetch = globalThis.fetch;
 		Object.assign(globalThis, {
-			fetch: async (_input: Request | string | URL, init?: RequestInit) => {
+			fetch: (_input: Request | string | URL, init?: RequestInit) => {
 				const signal = init?.signal ?? new AbortController().signal;
-				return new Response(neverClosingStream(signal), {
-					headers: { 'content-type': 'application/json' },
-				});
+				return Promise.resolve(
+					new Response(neverClosingStream(signal), {
+						headers: { 'content-type': 'application/json' },
+					})
+				);
 			},
 		});
 
@@ -513,10 +508,12 @@ describe('probe response body bounds (time and size)', () => {
 
 		const originalFetch = globalThis.fetch;
 		Object.assign(globalThis, {
-			fetch: async (_input: Request | string | URL, _init?: RequestInit) =>
-				new Response(oversizedStream(), {
-					headers: { 'content-type': 'application/json' },
-				}),
+			fetch: (_input: Request | string | URL, _init?: RequestInit) =>
+				Promise.resolve(
+					new Response(oversizedStream(), {
+						headers: { 'content-type': 'application/json' },
+					})
+				),
 		});
 
 		try {
@@ -537,22 +534,24 @@ describe('probe response body bounds (time and size)', () => {
 	test('a declared Content-Length above the cap is rejected without buffering the body', async () => {
 		const originalFetch = globalThis.fetch;
 		Object.assign(globalThis, {
-			fetch: async (_input: Request | string | URL, _init?: RequestInit) => {
+			fetch: (_input: Request | string | URL, _init?: RequestInit) => {
 				// Stream that would be expensive to buffer: 2 MiB of data. The
 				// Content-Length check must reject before the full body is read.
 				const chunk = new Uint8Array(64 * 1024).fill(0x61);
-				return new Response(
-					new ReadableStream<Uint8Array>({
-						pull(controller) {
-							controller.enqueue(chunk);
-						},
-					}),
-					{
-						headers: {
-							'content-length': String(2 * 1024 * 1024),
-							'content-type': 'application/json',
-						},
-					}
+				return Promise.resolve(
+					new Response(
+						new ReadableStream<Uint8Array>({
+							pull(controller) {
+								controller.enqueue(chunk);
+							},
+						}),
+						{
+							headers: {
+								'content-length': String(2 * 1024 * 1024),
+								'content-type': 'application/json',
+							},
+						}
+					)
 				);
 			},
 		});

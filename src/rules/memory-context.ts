@@ -113,7 +113,7 @@ export const memoryContextRequestRule: Rule = {
 		'context into a third-party-authored skill.',
 	group: 'memory-context-exposure',
 	id: 'agent.memory-context-request',
-	async scan(ctx: RuleContext): Promise<Finding[]> {
+	scan(ctx: RuleContext): Finding[] {
 		const findings: Finding[] = [];
 		for (const artifact of ctx.artifacts) {
 			if (!IN_SCOPE.has(artifact.type)) continue;
