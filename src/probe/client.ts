@@ -165,62 +165,52 @@ export class McpHttpClient {
 	 *   connection while we buffer it.
 	 * - Streamed responses are read in fixed chunks; if the cumulative byte
 	 *   count exceeds the cap the read is cancelled and rejected.
-	 * - The `AbortController`/timer passed in stay active for the duration of
-	 *   the read, so a never-closing stream aborts at the deadline instead of
-	 *   hanging the CLI.
+	 * - The request's `AbortController` and timer stay active for the duration
+	 *   of the read, so a never-closing stream aborts at the deadline instead
+	 *   of hanging the CLI.
 	 */
-	private async readBoundedText(
-		response: Response,
-		controller: AbortController,
-		timer: ReturnType<typeof setTimeout>
-	): Promise<string> {
+	private async readBoundedText(response: Response): Promise<string> {
+		const declared = response.headers.get('content-length');
+		if (declared !== null) {
+			const parsed = Number.parseInt(declared, 10);
+			if (Number.isSafeInteger(parsed) && parsed > MAX_RESPONSE_BYTES) {
+				throw new Error(
+					`Response body exceeds ${MAX_RESPONSE_BYTES} byte cap (declared ${parsed})`
+				);
+			}
+		}
+
+		// Responses without a usable body (e.g. 204) resolve to an empty
+		// string without touching the stream.
+		if (response.body === null) return '';
+
+		const reader = response.body.getReader();
+		const decoder = new TextDecoder();
+		const chunks: string[] = [];
+		let total = 0;
+
 		try {
-			const declared = response.headers.get('content-length');
-			if (declared !== null) {
-				const parsed = Number.parseInt(declared, 10);
-				if (Number.isSafeInteger(parsed) && parsed > MAX_RESPONSE_BYTES) {
-					throw new Error(
-						`Response body exceeds ${MAX_RESPONSE_BYTES} byte cap (declared ${parsed})`
-					);
-				}
-			}
-
-			// Responses without a usable body (e.g. 204) resolve to an empty
-			// string without touching the stream.
-			if (response.body === null) return '';
-
-			const reader = response.body.getReader();
-			const decoder = new TextDecoder();
-			const chunks: string[] = [];
-			let total = 0;
-
-			try {
-				for (;;) {
-					const { done, value } = await reader.read();
-					if (done) break;
-					// `value` is a Uint8Array chunk from the stream.
-					if (value !== undefined) {
-						total += value.byteLength;
-						if (total > MAX_RESPONSE_BYTES) {
-							await reader.cancel().catch(() => {
-								// Best-effort cancel; the rejection path below is authoritative.
-							});
-							throw new Error(
-								`Response body exceeded ${MAX_RESPONSE_BYTES} byte cap after ${total} bytes`
-							);
-						}
-						chunks.push(decoder.decode(value, { stream: true }));
+			for (;;) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				// `value` is a Uint8Array chunk from the stream.
+				if (value !== undefined) {
+					total += value.byteLength;
+					if (total > MAX_RESPONSE_BYTES) {
+						await reader.cancel().catch(() => {
+							// Best-effort cancel; the rejection path below is authoritative.
+						});
+						throw new Error(
+							`Response body exceeded ${MAX_RESPONSE_BYTES} byte cap after ${total} bytes`
+						);
 					}
+					chunks.push(decoder.decode(value, { stream: true }));
 				}
-				chunks.push(decoder.decode());
-				return chunks.join('');
-			} finally {
-				reader.releaseLock();
 			}
+			chunks.push(decoder.decode());
+			return chunks.join('');
 		} finally {
-			clearTimeout(timer);
-			// Ensure a late abort cannot fire after the read resolved/rejected.
-			controller.abort();
+			reader.releaseLock();
 		}
 	}
 
@@ -247,33 +237,37 @@ export class McpHttpClient {
 			...(params !== undefined ? { params } : {}),
 		});
 		const { controller, promise, timer } = this.startTimedFetch(body);
-		const response = await promise;
+		try {
+			const response = await promise;
 
-		const sessionHeader = response.headers.get('mcp-session-id');
-		if (sessionHeader) this.sessionId = sessionHeader;
+			const sessionHeader = response.headers.get('mcp-session-id');
+			if (sessionHeader) this.sessionId = sessionHeader;
 
-		if (response.status === 204) {
+			if (response.status === 204) {
+				throw new Error('Server returned 204 with no JSON-RPC payload');
+			}
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status} ${response.statusText}`);
+			}
+
+			const text = await this.readBoundedText(response);
+			const parsed = parseJsonRpc(text);
+			if (parsed === null) throw new Error('Empty or unparseable response body');
+			const envelope = JSON_RPC_RESPONSE_SCHEMA.safeParse(parsed);
+			if (!envelope.success) throw validationError('JSON-RPC response', envelope.error);
+			if (envelope.data.error) {
+				throw new Error(
+					`JSON-RPC ${envelope.data.error.code}: ${envelope.data.error.message}`
+				);
+			}
+			const result = resultSchema.safeParse(envelope.data.result);
+			if (!result.success) throw validationError(`${method} result`, result.error);
+			return result.data;
+		} finally {
 			clearTimeout(timer);
+			// Ensure a late abort cannot fire after the request resolved/rejected.
 			controller.abort();
-			throw new Error('Server returned 204 with no JSON-RPC payload');
 		}
-		if (!response.ok) {
-			clearTimeout(timer);
-			controller.abort();
-			throw new Error(`HTTP ${response.status} ${response.statusText}`);
-		}
-
-		const text = await this.readBoundedText(response, controller, timer);
-		const parsed = parseJsonRpc(text);
-		if (parsed === null) throw new Error('Empty or unparseable response body');
-		const envelope = JSON_RPC_RESPONSE_SCHEMA.safeParse(parsed);
-		if (!envelope.success) throw validationError('JSON-RPC response', envelope.error);
-		if (envelope.data.error) {
-			throw new Error(`JSON-RPC ${envelope.data.error.code}: ${envelope.data.error.message}`);
-		}
-		const result = resultSchema.safeParse(envelope.data.result);
-		if (!result.success) throw validationError(`${method} result`, result.error);
-		return result.data;
 	}
 }
 

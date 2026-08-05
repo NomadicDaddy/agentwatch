@@ -412,6 +412,34 @@ describe('probe deep masking of object keys and non-string values', () => {
 });
 
 describe('probe response body bounds (time and size)', () => {
+	test('clears the request timeout when fetch rejects before headers', async () => {
+		const originalFetch = globalThis.fetch;
+		const timer = setTimeout(() => undefined, 0);
+		clearTimeout(timer);
+		const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockReturnValue(timer);
+		const clearTimeoutSpy = spyOn(globalThis, 'clearTimeout');
+		Object.assign(globalThis, {
+			fetch: async () => {
+				throw new Error('connection failed before headers');
+			},
+		});
+
+		try {
+			const { exitCode, output } = await captureStdout(() =>
+				runProbe('https://example.test/mcp', { json: false, timeoutMs: 60_000 })
+			);
+
+			expect(exitCode).toBe(1);
+			expect(output).toContain('[initialize] connection failed before headers');
+			expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
+			expect(clearTimeoutSpy).toHaveBeenCalledWith(timer);
+		} finally {
+			Object.assign(globalThis, { fetch: originalFetch });
+			clearTimeoutSpy.mockRestore();
+			setTimeoutSpy.mockRestore();
+		}
+	});
+
 	/**
 	 * Build a ReadableStream that never produces a chunk and never closes on
 	 * its own, simulating a malicious or wedged MCP endpoint. The stream is
