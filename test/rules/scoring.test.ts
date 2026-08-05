@@ -16,6 +16,14 @@ describe('composite scoring engine', () => {
 		expect(computeScore([Signal.UrlShortener, Signal.AdMarketing])).toBe(30);
 	});
 
+	test('counts duplicate signals once at the scoring boundary', () => {
+		const signals = [Signal.RemoteEndpoint, Signal.RemoteEndpoint];
+
+		expect(computeScore(signals)).toBe(35);
+		expect(computeSeverity(signals)).toBe('low');
+		expect(explainScore(signals)).toEqual([{ score: 35, signal: 'remote-endpoint' }]);
+	});
+
 	test('unknown signals contribute zero without throwing', () => {
 		expect(computeScore(['not-a-real-signal', Signal.Gateway])).toBe(30);
 	});

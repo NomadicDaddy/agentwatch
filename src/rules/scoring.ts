@@ -53,27 +53,31 @@ export interface SignalContribution {
 	readonly signal: string;
 }
 
+function uniqueSignals(signals: readonly string[]): string[] {
+	return [...new Set(signals)];
+}
+
 /**
  * Sum the score contributions of the given signals.
  *
- * Duplicate signals each count once — callers should pass a distinct set.
+ * Duplicate signals count once, preserving the caller's first-seen order.
  * Unknown signal labels contribute 0 (no throw, no warning); rules are the
  * authoritative source of label vocabulary.
  */
 export function computeScore(signals: readonly string[]): number {
 	let total = 0;
-	for (const signal of signals) {
+	for (const signal of uniqueSignals(signals)) {
 		total += SIGNAL_SCORES[signal as Signal] ?? 0;
 	}
 	return total;
 }
 
 /**
- * Return per-signal contributions in the order the caller supplied them.
+ * Return one contribution per signal in first-seen caller order.
  * Useful for explainable findings ("which signals drove this score").
  */
 export function explainScore(signals: readonly string[]): SignalContribution[] {
-	return signals.map((signal) => ({
+	return uniqueSignals(signals).map((signal) => ({
 		score: SIGNAL_SCORES[signal as Signal] ?? 0,
 		signal,
 	}));
