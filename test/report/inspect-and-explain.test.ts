@@ -38,6 +38,15 @@ const DISJOINT_FIXTURE = resolve(
 	'focused',
 	'disjoint-clusters.json'
 );
+const MALFORMED_ENV_FIXTURE = resolve(
+	PROJECT_ROOT,
+	'test',
+	'fixtures',
+	'focused',
+	'malformed.env.production.json'
+);
+const AWS_ACCESS_KEY_ID = ['AKIA', '1234567890ABCDEF'].join('');
+const GITHUB_TOKEN = ['github', '_pat_', 'focusedInspectionSecret1234567890'].join('');
 const CRITICAL_CORRELATION_RULE_ID = 'agent.critical-signal-combination';
 const MCP_RULE_IDS: readonly string[] = [
 	'agent.dynamic-tool-registry',
@@ -87,6 +96,39 @@ describe('focused inspection and explanations', () => {
 		expect(result.exitCode).toBe(2);
 		expect(result.stdout).toBe('');
 		expect(result.stderr).toContain('inspect-skill: cannot read');
+	});
+
+	test('focused inspection masks sensitive paths in read and parse errors', () => {
+		const skillTail = `private-key-${GITHUB_TOKEN}.md`;
+		const awsTail = `credentials-${AWS_ACCESS_KEY_ID}.json`;
+		const missingSkill = `.ssh/${skillTail}`;
+		const missingMcp = ['.aws', awsTail].join('\\');
+
+		const skillReadError = runCli(['inspect-skill', missingSkill]);
+		const mcpReadError = runCli(['inspect-mcp', missingMcp]);
+		const mcpParseError = runCli(['inspect-mcp', MALFORMED_ENV_FIXTURE]);
+
+		expect(skillReadError.exitCode).toBe(2);
+		expect(skillReadError.stdout).toBe('');
+		expect(skillReadError.stderr).toContain('inspect-skill: cannot read');
+		expect(skillReadError.stderr).toContain('.ssh');
+		expect(skillReadError.stderr).toContain('***');
+		expect(skillReadError.stderr).not.toContain(skillTail);
+		expect(skillReadError.stderr).not.toContain(GITHUB_TOKEN);
+
+		expect(mcpReadError.exitCode).toBe(2);
+		expect(mcpReadError.stdout).toBe('');
+		expect(mcpReadError.stderr).toContain('inspect-mcp: cannot read');
+		expect(mcpReadError.stderr).toContain('.aws');
+		expect(mcpReadError.stderr).toContain('***');
+		expect(mcpReadError.stderr).not.toContain(awsTail);
+		expect(mcpReadError.stderr).not.toContain(AWS_ACCESS_KEY_ID);
+
+		expect(mcpParseError.exitCode).toBe(2);
+		expect(mcpParseError.stdout).toBe('');
+		expect(mcpParseError.stderr).toContain('is not valid JSON');
+		expect(mcpParseError.stderr).toContain('malformed.env.p***');
+		expect(mcpParseError.stderr).not.toContain('malformed.env.production.json');
 	});
 
 	test('inspect-mcp correlates signals and explain covers the same registered MCP rules', () => {

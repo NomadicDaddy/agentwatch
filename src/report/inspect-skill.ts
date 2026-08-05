@@ -23,6 +23,7 @@ import { broadToolSurfaceRule } from '../rules/broad-tool-surface.ts';
 import { credentialFileReferenceRule } from '../rules/credential-file-reference.ts';
 import { memoryContextRequestRule } from '../rules/memory-context.ts';
 import { triggerBasedInvocationRule } from '../rules/trigger-based-invocation.ts';
+import { maskSecrets } from '../util/mask.ts';
 import { PACKAGE_VERSION } from '../version.ts';
 import { formatHuman, type ScanInventory } from './human.ts';
 import { formatJson } from './json.ts';
@@ -59,7 +60,9 @@ export async function runInspectSkill(
 		raw = await readFile(absolute, 'utf8');
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
-		process.stderr.write(`inspect-skill: cannot read ${absolute}: ${message}\n`);
+		process.stderr.write(
+			`inspect-skill: cannot read ${maskSecrets(absolute)}: ${maskSecrets(message)}\n`
+		);
 		return 2;
 	}
 

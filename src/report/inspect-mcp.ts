@@ -24,6 +24,7 @@ import { remoteCapabilityRule } from '../rules/remote-capabilities.ts';
 import { remoteManifestRule } from '../rules/remote-manifest.ts';
 import { unpinnedExecutionBridgeRule } from '../rules/unpinned-execution-bridge.ts';
 import { correlateFindings } from '../scanner/finding-correlation.ts';
+import { maskSecrets } from '../util/mask.ts';
 import { PACKAGE_VERSION } from '../version.ts';
 import { formatHuman, type ScanInventory } from './human.ts';
 import { formatJson } from './json.ts';
@@ -61,7 +62,9 @@ export async function runInspectMcp(
 		raw = await readFile(absolute, 'utf8');
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
-		process.stderr.write(`inspect-mcp: cannot read ${absolute}: ${message}\n`);
+		process.stderr.write(
+			`inspect-mcp: cannot read ${maskSecrets(absolute)}: ${maskSecrets(message)}\n`
+		);
 		return 2;
 	}
 
@@ -76,7 +79,9 @@ export async function runInspectMcp(
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 		const fmt = isToml ? 'TOML' : 'JSON';
-		process.stderr.write(`inspect-mcp: ${absolute} is not valid ${fmt}: ${message}\n`);
+		process.stderr.write(
+			`inspect-mcp: ${maskSecrets(absolute)} is not valid ${fmt}: ${maskSecrets(message)}\n`
+		);
 		return 2;
 	}
 
