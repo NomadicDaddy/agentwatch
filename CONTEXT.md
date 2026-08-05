@@ -157,12 +157,13 @@ when advertised) to enumerate a remote MCP server's declared surface.
 
 The opt-in act of contacting a remote MCP server over the network to enumerate
 what it actually advertises. Probing is the only place AgentWatch touches the
-network. A Probe performs at most four JSON-RPC requests (initialize,
-notifications/initialized, tools/list, and optionally prompts/list and
-resources/list). A Probe never invokes a tool. Probe Issues are heuristic
-findings about the live surface: non-HTTPS transport, high tool count, generic
-dispatch tool names, gateway wording, broad capability wording, and missing
-server info.
+network. A Probe performs at most five HTTP requests. It begins with
+`initialize`; after successful initialization, it sends the best-effort
+`notifications/initialized` notification and requests `tools/list`. It also
+requests `prompts/list` and `resources/list` when the server advertises those
+capabilities. A Probe never invokes a tool. Probe Issues are heuristic findings
+about the live surface: non-HTTPS transport, high tool count, generic dispatch
+tool names, gateway wording, broad capability wording, and missing server info.
 
 ## Recommendation
 
